@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Trip Split</title>
+<meta name="theme-color" content="#110b29">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ================= THEME COLOURS ================= */
+  :root, [data-theme="day"]{
+    --bg:#fff3dc; --bg-dot:#ffd7a1; --card:#ffffff; --card2:#fff8ec;
+    --ink:#2a1238; --muted:#7b6680; --ol:#2a1238;
+    --pink:#ff3d7f; --mari:#ffb703; --teal:#00b3a1; --indigo:#5b3cc4; --green:#2fb36d; --sky:#4cc9f0; --orange:#ff7a1a;
+    --good:#13915a; --bad:#e0344f;
+    --shadow:4px 4px 0 var(--ol); --shadow-sm:2px 2px 0 var(--ol);
+    --field:#fffdf8; --chipbg:#ffe9b3;
+    --hero1:#ff3d7f; --hero2:#ff9a1f;
+    --svg-ol:#2a1238; --svg-fo:1; --svg-glow:none;
+  }
+  [data-theme="night"]{
+    --bg:#110b29; --bg-dot:#241a4f; --card:#1b1340; --card2:#221850;
+    --ink:#f7edff; --muted:#a99ccb; --ol:#8f72ff;
+    --pink:#ff4fae; --mari:#ffd23f; --teal:#2ef2d6; --indigo:#a98bff; --green:#5dff9d; --sky:#5fd8ff; --orange:#ff9a3d;
+    --good:#5dff9d; --bad:#ff6b8b;
+    --shadow:0 0 0 1px rgba(143,114,255,.5), 0 0 18px rgba(143,114,255,.35);
+    --shadow-sm:0 0 10px rgba(143,114,255,.4);
+    --field:#150e33; --chipbg:#3a2a7a;
+    --hero1:#2a1a66; --hero2:#120b33;
+    --svg-ol:#2ef2d6; --svg-fo:.22; --svg-glow:drop-shadow(0 0 3px var(--svg-ol)) drop-shadow(0 0 8px var(--svg-ol));
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;color:var(--ink);background:var(--bg);
+    font-family:"Baloo 2","Nunito",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.35;
+    transition:background-color .5s,color .5s}
+  body{background-image:radial-gradient(circle,var(--bg-dot) 1.6px,transparent 2.2px);background-size:24px 24px;min-height:100vh;overflow-x:hidden}
+  button,input,select{font:inherit;color:inherit}
+  .wrap{max-width:560px;margin:0 auto;padding:0 16px;position:relative}
+  .good{color:var(--good)} .bad{color:var(--bad)} .muted{color:var(--muted)}
+
+  /* ================= SKY: stars, moon, kite, lantern ================= */
+  .sky{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+  .stars{position:absolute;inset:0;opacity:0;transition:opacity .8s;
+    background-image:
+      radial-gradient(1.5px 1.5px at 20px 30px,#fff,transparent),radial-gradient(1px 1px at 90px 120px,#fff,transparent),
+      radial-gradient(1.5px 1.5px at 160px 60px,#ffe9a8,transparent),radial-gradient(1px 1px at 230px 180px,#fff,transparent),
+      radial-gradient(2px 2px at 300px 40px,#c9b8ff,transparent),radial-gradient(1px 1px at 340px 220px,#fff,transparent);
+    background-size:360px 260px}
+  .stars.s2{background-position:120px 90px;animation:twinkle 3s ease-in-out infinite}
+  [data-theme="night"] .stars{opacity:.9}
+  .floaty{position:absolute;width:64px;transition:opacity .6s}
+  .kite{right:6%;top:120px;animation:kite 6s ease-in-out infinite}
+  .lantern{left:5%;top:150px;width:44px;opacity:0;animation:lantern 9s ease-in-out infinite}
+  .moon{right:8%;top:96px;width:46px;opacity:0;filter:drop-shadow(0 0 14px #ffe9a8)}
+  [data-theme="night"] .kite{opacity:0} [data-theme="night"] .lantern,[data-theme="night"] .moon{opacity:.95}
+  [data-theme="night"] .lantern{filter:drop-shadow(0 0 10px #ff9a3d)}
+  @keyframes kite{0%,100%{transform:translate(0,0) rotate(-8deg)}50%{transform:translate(-14px,-18px) rotate(10deg)}}
+  @keyframes lantern{0%{transform:translate(0,40px)}50%{transform:translate(16px,-10px)}100%{transform:translate(0,40px)}}
+  @keyframes twinkle{0%,100%{opacity:.3}50%{opacity:1}}
+
+  /* ================= HEADER + BUNTING / FAIRY LIGHTS ================= */
+  header.top{position:sticky;top:0;z-index:20;background:var(--bg);transition:background-color .5s}
+  header .wrap{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:calc(10px + env(safe-area-inset-top));padding-bottom:6px}
+  .eyebrow{font-size:12px;color:var(--pink);font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+  h1{font-size:24px;margin:0;font-weight:800;line-height:1.1}
+  [data-theme="night"] h1{text-shadow:0 0 12px rgba(255,79,174,.55)}
+  .top-right{display:flex;gap:6px;align-items:center}
+  .icon-btn{border:2.5px solid var(--ol);background:var(--card);border-radius:14px;width:40px;height:40px;cursor:pointer;font-size:18px;font-weight:800;
+    box-shadow:var(--shadow-sm);display:flex;align-items:center;justify-content:center;transition:transform .15s}
+  .icon-btn:active{transform:scale(.9) rotate(-6deg)}
+  .theme-btn{position:relative;overflow:hidden}
+  .theme-btn .sun,.theme-btn .mn{position:absolute;transition:transform .5s cubic-bezier(.5,1.8,.5,1),opacity .3s}
+  [data-theme="day"] .theme-btn .mn{transform:translateY(30px) rotate(90deg);opacity:0}
+  [data-theme="night"] .theme-btn .sun{transform:translateY(-30px) rotate(-90deg);opacity:0}
+  .sync{display:flex;align-items:center;gap:6px;border:2.5px solid var(--ol);background:var(--card);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;box-shadow:var(--shadow-sm);max-width:130px;white-space:nowrap;overflow:hidden}
+  .dot{width:9px;height:9px;border-radius:50%;background:#bbb;flex-shrink:0}
+  .dot.ok{background:var(--good);box-shadow:0 0 8px var(--good)} .dot.err{background:var(--bad)} .dot.busy{background:var(--mari);animation:pulse 1s infinite} .dot.local{background:#999}
+  @keyframes pulse{50%{transform:scale(1.5)}}
+  .bunting{height:26px;position:relative;overflow:hidden}
+  .bunting::before{content:"";position:absolute;left:-10px;right:-10px;top:3px;height:12px;border-top:2px solid var(--ol);border-radius:50%}
+  .bunting .fl{position:absolute;top:5px;width:16px;height:18px;transform-origin:top center;animation:sway 2.4s ease-in-out infinite;
+    clip-path:polygon(0 0,100% 0,50% 100%);transition:all .5s}
+  .bunting .fl:nth-child(5n+1){background:var(--pink)} .bunting .fl:nth-child(5n+2){background:var(--mari)}
+  .bunting .fl:nth-child(5n+3){background:var(--teal)} .bunting .fl:nth-child(5n+4){background:var(--indigo)} .bunting .fl:nth-child(5n){background:var(--green)}
+  [data-theme="night"] .bunting .fl{clip-path:none;width:9px;height:12px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;top:9px;
+    box-shadow:0 0 8px currentColor,0 0 16px currentColor;animation:bulb 1.6s ease-in-out infinite}
+  [data-theme="night"] .bunting .fl:nth-child(5n+1){color:var(--pink)} [data-theme="night"] .bunting .fl:nth-child(5n+2){color:var(--mari)}
+  [data-theme="night"] .bunting .fl:nth-child(5n+3){color:var(--teal)} [data-theme="night"] .bunting .fl:nth-child(5n+4){color:var(--indigo)} [data-theme="night"] .bunting .fl:nth-child(5n){color:var(--green)}
+  @keyframes sway{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
+  @keyframes bulb{0%,100%{opacity:1;filter:brightness(1.2)}50%{opacity:.35;filter:brightness(.7)}}
+
+  /* ================= LAYOUT / VIEWS ================= */
+  main{padding:6px 0 120px;position:relative;z-index:1}
+  .view{display:none} .view.on{display:block;animation:viewIn .45s cubic-bezier(.3,1.5,.5,1)}
+  @keyframes viewIn{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
+
+  .card{background:var(--card);border:2.5px solid var(--ol);border-radius:20px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow);transition:background-color .5s,box-shadow .5s,border-color .5s}
+  .card h2{font-size:17px;margin:0 0 8px;font-weight:800;display:flex;align-items:center;gap:6px}
+  .card h2 .em{font-size:20px;display:inline-block;animation:wiggle 3s ease-in-out infinite}
+  @keyframes wiggle{0%,90%,100%{transform:rotate(0)}93%{transform:rotate(-14deg)}96%{transform:rotate(12deg)}}
+
+  /* ================= HERO (your balance) ================= */
+  .hero{position:relative;overflow:hidden;padding:20px 18px 0;color:#fff;
+    background:linear-gradient(135deg,var(--hero1),var(--hero2));min-height:200px}
+  [data-theme="night"] .hero{border-color:var(--pink);box-shadow:0 0 0 1px var(--pink),0 0 24px rgba(255,79,174,.45)}
+  .hero .label{font-size:15px;font-weight:700;opacity:.95;position:relative;z-index:2}
+  .hero .big{font-size:44px;font-weight:800;line-height:1.05;position:relative;z-index:2;animation:popBig .7s cubic-bezier(.3,1.8,.5,1);
+    text-shadow:3px 3px 0 rgba(42,18,56,.35)}
+  [data-theme="night"] .hero .big{text-shadow:0 0 10px currentColor,0 0 24px currentColor}
+  .hero .big.good{color:#fff} .hero .big.bad{color:#fff}
+  [data-theme="night"] .hero .big.good{color:var(--good)} [data-theme="night"] .hero .big.bad{color:var(--bad)}
+  .hero .place{position:relative;z-index:2;font-size:12px;font-weight:700;opacity:.85;margin-top:4px}
+  .hero .scene{position:absolute;right:-6px;bottom:-4px;width:58%;max-width:230px;z-index:1}
+  .hero .diyas{position:absolute;left:12px;bottom:8px;display:flex;gap:10px;z-index:2;opacity:0;transition:opacity .6s}
+  [data-theme="night"] .hero .diyas{opacity:1}
+  .hero .road{height:34px}
+  @keyframes popBig{0%{transform:scale(.3);opacity:0}100%{transform:scale(1);opacity:1}}
+
+  /* ================= LANDMARK SVG PAINT ================= */
+  .lm .o{stroke:var(--svg-ol);stroke-width:2.4;stroke-linejoin:round;stroke-linecap:round;transition:stroke .6s,fill-opacity .6s}
+  .lm{filter:var(--svg-glow);transition:filter .6s}
+  .lm .w{fill:#fffaf0} .lm .p{fill:#ff8fb8} .lm .y{fill:#ffc93c} .lm .t{fill:#3fd1c0} .lm .g{fill:#57c46c} .lm .b{fill:#68c7f2} .lm .r{fill:#e86a3a} .lm .k{fill:#2a1238}
+  [data-theme="night"] .lm .w,[data-theme="night"] .lm .p,[data-theme="night"] .lm .y,[data-theme="night"] .lm .t,[data-theme="night"] .lm .g,[data-theme="night"] .lm .b,[data-theme="night"] .lm .r{fill-opacity:var(--svg-fo)}
+  [data-theme="night"] .lm.c-pink{--svg-ol:#ff4fae} [data-theme="night"] .lm.c-gold{--svg-ol:#ffd23f}
+  [data-theme="night"] .lm.c-teal{--svg-ol:#2ef2d6} [data-theme="night"] .lm.c-lime{--svg-ol:#7dff6b} [data-theme="night"] .lm.c-sky{--svg-ol:#5fd8ff} [data-theme="night"] .lm.c-violet{--svg-ol:#b99bff}
+
+  /* diya */
+  .diya{width:26px;height:30px}
+  .diya .flame{transform-origin:13px 14px;animation:flicker .18s ease-in-out infinite alternate}
+  [data-theme="night"] .diya{filter:drop-shadow(0 0 6px #ffb02e) drop-shadow(0 0 14px #ff7a1a)}
+  @keyframes flicker{from{transform:scale(1,1) rotate(-3deg)}to{transform:scale(.88,1.12) rotate(3deg)}}
+
+  /* ================= AUTO RICKSHAW ================= */
+  .auto .beam{opacity:0;transition:opacity .4s}
+  [data-theme="night"] .auto .beam{opacity:.9}
+  [data-theme="night"] .auto{filter:drop-shadow(0 0 4px #ffd23f)}
+  .auto .wh{transform-box:fill-box;transform-origin:center;animation:spin .4s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .road-strip{position:relative;height:46px;overflow:hidden;margin:4px -16px 0}
+  .road-strip::after{content:"";position:absolute;left:0;right:0;bottom:6px;border-bottom:3px dashed var(--muted);opacity:.5}
+  .road-strip .auto{position:absolute;bottom:6px;width:62px;animation:drive 7s linear infinite}
+  @keyframes drive{from{left:-80px}to{left:105%}}
+
+  /* ================= MARQUEE OF INDIA ================= */
+  .marquee{overflow:hidden;margin:0 -16px;padding:6px 0 0}
+  .marquee .track{display:flex;gap:18px;width:max-content;animation:scrollX 38s linear infinite}
+  .marquee .lmk{width:110px;text-align:center;font-size:11px;font-weight:800;color:var(--muted)}
+  .marquee .lmk svg{width:110px;height:74px;display:block}
+  @keyframes scrollX{to{transform:translateX(-50%)}}
+  .welcome{text-align:center;padding:18px 16px 8px;background:linear-gradient(160deg,var(--card),var(--card2))}
+  .welcome .big-title{font-size:30px;font-weight:800;line-height:1.05}
+  .welcome .big-title span{color:var(--pink)}
+  [data-theme="night"] .welcome .big-title span{text-shadow:0 0 12px var(--pink)}
+
+  /* ================= ROWS / CHIPS / TABLE ================= */
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 0;border-top:2px dashed color-mix(in srgb,var(--muted) 35%,transparent)}
+  .row:first-of-type{border-top:none}
+  .settle-row .who{flex:1}
+  .settle-row .amtline{font-weight:800;font-size:18px}
+  .chip{display:inline-block;font-size:11px;font-weight:800;padding:1px 8px;border-radius:999px;background:var(--chipbg);color:var(--ink);margin-left:4px;vertical-align:middle;border:1.5px solid var(--ol)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:right;color:var(--muted);font-weight:700;font-size:12px;padding:6px 0}
+  th:first-child,td:first-child{text-align:left}
+  td{text-align:right;padding:9px 0;border-top:2px dashed color-mix(in srgb,var(--muted) 30%,transparent)}
+  .av{display:inline-flex;width:26px;height:26px;border-radius:50%;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;border:2px solid var(--ol);margin-right:6px;vertical-align:middle}
+  [data-theme="night"] .av{box-shadow:0 0 8px currentColor;color:#110b29}
+
+  /* ================= BUTTONS ================= */
+  .btn{border:2.5px solid var(--ol);background:var(--mari);color:#2a1238;border-radius:12px;padding:7px 12px;cursor:pointer;font-size:14px;font-weight:800;box-shadow:var(--shadow-sm);transition:transform .12s}
+  .btn.small{padding:5px 10px;font-size:13px}
+  .btn:active,.primary:active,.ghost:active,.danger:active{transform:translate(2px,2px) scale(.97)}
+  .primary{position:relative;width:100%;border:2.5px solid var(--ol);background:var(--pink);color:#fff;border-radius:16px;padding:14px;font-weight:800;font-size:18px;cursor:pointer;margin-top:10px;box-shadow:var(--shadow);transition:transform .12s;letter-spacing:.02em}
+  [data-theme="night"] .primary{text-shadow:0 0 8px #fff;box-shadow:0 0 0 1px var(--pink),0 0 22px rgba(255,79,174,.6)}
+  [data-theme="night"] .btn{background:transparent;color:var(--mari);border-color:var(--mari);box-shadow:0 0 12px rgba(255,210,63,.4);text-shadow:0 0 6px var(--mari)}
+  .danger{width:100%;border:2.5px solid var(--bad);background:transparent;color:var(--bad);border-radius:16px;padding:12px;font-weight:800;cursor:pointer;margin-top:10px}
+  .ghost{width:100%;border:2.5px solid var(--ol);background:var(--card);border-radius:16px;padding:12px;cursor:pointer;margin-top:10px;font-weight:800;box-shadow:var(--shadow-sm);transition:transform .12s}
+  .linkbtn{background:none;border:none;color:var(--pink);cursor:pointer;font-size:13px;padding:0;font-weight:800}
+
+  /* ================= ACTIVITY ITEMS ================= */
+  .day{font-size:13px;font-weight:800;margin:18px 2px 8px;display:inline-block;padding:2px 12px;border-radius:999px;background:var(--chipbg);border:2px solid var(--ol)}
+  .item{display:flex;gap:12px;align-items:center;background:var(--card);border:2.5px solid var(--ol);border-radius:18px;padding:11px;margin-bottom:10px;cursor:pointer;width:100%;text-align:left;
+    box-shadow:var(--shadow-sm);animation:itemIn .5s cubic-bezier(.3,1.6,.5,1) both;animation-delay:calc(var(--i,0) * 45ms);transition:transform .12s}
+  .item:active{transform:scale(.97) rotate(-.5deg)}
+  @keyframes itemIn{from{opacity:0;transform:translateX(-30px) rotate(-3deg)}to{opacity:1;transform:none}}
+  .item .ico{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;border:2.5px solid var(--ol);background:var(--c,#ffe9b3)}
+  [data-theme="night"] .item .ico{background:transparent;border-color:var(--c);box-shadow:0 0 10px var(--c),inset 0 0 8px var(--c)}
+  .item .mid{flex:1;min-width:0}
+  .item .title{font-weight:800;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item .sub{font-size:13px;color:var(--muted);font-weight:600}
+  .item .amt{text-align:right;font-weight:800;font-size:16px}
+  .item .amt .sub{font-weight:700}
+  .item .thumb{width:64px;height:44px;flex-shrink:0}
+  .pending{font-size:11px;color:var(--orange);font-weight:800}
+
+  /* ================= FORMS ================= */
+  label{display:block;font-size:13px;color:var(--muted);margin:12px 0 0;font-weight:700}
+  input[type=text],input[type=date],input:not([type]),select{display:block;width:100%;margin-top:5px;border:2.5px solid var(--ol);background:var(--field);border-radius:14px;padding:11px 12px;font-size:16px;color:var(--ink);font-weight:600;transition:box-shadow .2s,transform .2s}
+  input:focus,select:focus{outline:none;box-shadow:0 0 0 4px color-mix(in srgb,var(--pink) 35%,transparent);transform:translateY(-1px)}
+  [data-theme="night"] input,[data-theme="night"] select{color-scheme:dark}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .seg{display:flex;background:var(--card2);border:2.5px solid var(--ol);border-radius:16px;padding:3px;box-shadow:var(--shadow-sm)}
+  .seg button{flex:1;border:none;background:transparent;padding:9px;border-radius:12px;cursor:pointer;font-weight:800;color:var(--muted);transition:all .25s cubic-bezier(.3,1.6,.5,1)}
+  .seg button.on{background:var(--mari);color:#2a1238;transform:scale(1.03)}
+  [data-theme="night"] .seg button.on{background:transparent;color:var(--mari);box-shadow:inset 0 0 0 2px var(--mari),0 0 12px rgba(255,210,63,.5)}
+  .seg.small{box-shadow:none;border-width:2px} .seg.small button{padding:4px 10px;font-size:13px}
+  .split-head{display:flex;justify-content:space-between;align-items:center;margin:16px 0 6px}
+  .split-head span{font-size:13px;color:var(--muted);font-weight:700}
+  .srow{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:2px dashed color-mix(in srgb,var(--muted) 30%,transparent)}
+  .srow:first-child{border-top:none}
+  .srow .n{flex:1;font-weight:700}
+  .srow input[type=checkbox]{width:22px;height:22px;accent-color:var(--pink)}
+  .srow input.ex{width:110px;margin:0;padding:8px 10px;text-align:right}
+  .note{font-size:13px;margin-top:8px;color:var(--muted);font-weight:700}
+  .note.warn{color:var(--bad)}
+
+  /* ================= NAV ================= */
+  nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:0 0 calc(10px + env(safe-area-inset-bottom))}
+  nav.tabs .wrap{display:flex;gap:6px;padding:6px;background:var(--card);border:2.5px solid var(--ol);border-radius:22px;box-shadow:var(--shadow);max-width:528px;margin:0 auto;width:calc(100% - 24px)}
+  nav.tabs button{flex:1;border:none;background:transparent;padding:10px 4px;border-radius:16px;cursor:pointer;color:var(--muted);font-weight:800;font-size:15px;transition:all .25s}
+  nav.tabs button.on{color:var(--ink);background:var(--chipbg)}
+  nav.tabs button.add{background:var(--pink);color:#fff;border:2.5px solid var(--ol);display:flex;align-items:center;justify-content:center;gap:4px;flex:1.2}
+  nav.tabs button.add svg{width:30px;animation:bob 1.2s ease-in-out infinite}
+  [data-theme="night"] nav.tabs button.add{box-shadow:0 0 16px rgba(255,79,174,.7)}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px) rotate(-3deg)}}
+
+  /* ================= TOAST, STICKER, FX ================= */
+  #toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) scale(.6);background:var(--mari);color:#2a1238;border:2.5px solid var(--ol);
+    padding:10px 16px;border-radius:16px;font-size:15px;font-weight:800;opacity:0;pointer-events:none;transition:all .3s cubic-bezier(.3,1.8,.5,1);z-index:60;max-width:90vw;box-shadow:var(--shadow-sm)}
+  #toast.show{opacity:1;transform:translateX(-50%) scale(1)}
+  .fx-layer{position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden}
+  .fx-auto{position:fixed;width:58px;z-index:55;pointer-events:none;animation:autoRun .9s cubic-bezier(.5,0,.6,1) forwards}
+  @keyframes autoRun{0%{transform:translateX(0) translateY(0)}20%{transform:translateX(calc(var(--d) * .2)) translateY(-3px) rotate(-4deg)}
+    40%{transform:translateX(calc(var(--d) * .4)) translateY(0) rotate(0)}100%{transform:translateX(var(--d)) translateY(-2px);opacity:.0}}
+  .puff{position:fixed;width:12px;height:12px;border-radius:50%;background:#cfc6d6;border:2px solid var(--ol);pointer-events:none;z-index:54;animation:puff .7s ease-out forwards}
+  [data-theme="night"] .puff{background:var(--mari);border:none;width:6px;height:6px;box-shadow:0 0 8px var(--mari),0 0 14px var(--orange)}
+  @keyframes puff{to{transform:translate(-18px,-14px) scale(2.2);opacity:0}}
+  .petal{position:absolute;top:-30px;width:14px;height:18px;border-radius:60% 0 60% 0;animation:fall linear forwards}
+  @keyframes fall{to{transform:translate(var(--x),110vh) rotate(var(--r))}}
+  .spark{position:absolute;width:6px;height:6px;border-radius:50%;animation:burst .9s ease-out forwards;box-shadow:0 0 6px currentColor,0 0 12px currentColor;background:currentColor}
+  @keyframes burst{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--x),var(--y)) scale(.3);opacity:0}}
+  .rocket{position:absolute;bottom:-10px;width:4px;height:16px;border-radius:2px;background:#fff;box-shadow:0 0 10px #ffd23f;animation:rise .6s ease-out forwards}
+  @keyframes rise{to{transform:translateY(calc(-1 * var(--h)))}}
+  .sticker{position:fixed;left:50%;top:38%;z-index:58;pointer-events:none;transform:translate(-50%,-50%) rotate(-8deg) scale(0);
+    background:var(--mari);color:#2a1238;border:3px solid var(--ol);border-radius:22px;padding:12px 22px;font-size:28px;font-weight:800;box-shadow:6px 6px 0 var(--ol);
+    animation:stick 1.6s cubic-bezier(.3,1.8,.5,1) forwards;text-align:center;white-space:nowrap}
+  .sticker small{display:block;font-size:14px}
+  [data-theme="night"] .sticker{background:#1b1340;color:var(--mari);border-color:var(--mari);box-shadow:0 0 0 2px var(--pink),0 0 30px rgba(255,79,174,.7);text-shadow:0 0 10px var(--mari)}
+  @keyframes stick{0%{transform:translate(-50%,-50%) rotate(-20deg) scale(0)}25%{transform:translate(-50%,-50%) rotate(-6deg) scale(1.1)}35%{transform:translate(-50%,-50%) rotate(-8deg) scale(1)}
+    80%{transform:translate(-50%,-50%) rotate(-8deg) scale(1);opacity:1}100%{transform:translate(-50%,-80%) rotate(-8deg) scale(.8);opacity:0}}
+  .theme-flash{position:fixed;inset:0;z-index:70;pointer-events:none;animation:flash .6s ease-out forwards}
+  @keyframes flash{from{opacity:.7}to{opacity:0}}
+
+  /* ================= MISC ================= */
+  .empty{text-align:center;color:var(--muted);padding:20px 10px 30px;font-weight:700}
+  .empty svg{width:120px;display:block;margin:0 auto 8px}
+  .steam{animation:steam 2s ease-in-out infinite;transform-box:fill-box}
+  .steam:nth-of-type(2){animation-delay:.6s} .steam:nth-of-type(3){animation-delay:1.2s}
+  @keyframes steam{0%{opacity:0;transform:translateY(6px)}50%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
+  .banner{background:var(--chipbg);border:2.5px dashed var(--ol);border-radius:16px;padding:10px 12px;font-size:13px;margin-bottom:14px;font-weight:700}
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  }
+
+  .auto .al{stroke:#2a1238;transition:stroke .5s} [data-theme="night"] .auto .al{stroke:#ffd23f}
+
+  .hero .hdeco{position:absolute;z-index:1;transition:opacity .6s}
+  .hero .kite{right:18px;top:10px;width:40px;animation:kite 5s ease-in-out infinite}
+  .hero .moon{right:22px;top:14px;width:34px;opacity:0;filter:drop-shadow(0 0 12px #ffe9a8)}
+  .hero .lantern{right:70px;top:30px;width:26px;opacity:0;animation:lantern 7s ease-in-out infinite;filter:drop-shadow(0 0 10px #ff9a3d)}
+  [data-theme="night"] .hero .kite{opacity:0} [data-theme="night"] .hero .moon,[data-theme="night"] .hero .lantern{opacity:1}
+  @keyframes lantern{0%,100%{transform:translateY(6px)}50%{transform:translate(8px,-8px)}}
+  @media (max-width:480px){ #syncText{display:none} .sync{padding:0;width:40px;height:40px;justify-content:center;border-radius:14px} .dot{width:12px;height:12px} }
+</style>
+</head>
+<body>
+<script>
+/* =====================================================================
+   SETTINGS: SYNC_URL is your Google Apps Script "Web app URL".
+   Leave it empty ('') and the app still works, but only on one phone.
+   Trips and people are created inside the app, so nothing else to edit.
+   ===================================================================== */
+const SYNC_URL  = 'https://script.google.com/macros/s/AKfycbxkaJoKnLN7ckwy_x6m7dkccR77Cc502pPi_1CJtg0J7D48oNbfYrkygIx8d89RiStoEg/exec';
+</script>
+
+<div class="sky" aria-hidden="true">
+  <div class="stars"></div><div class="stars s2"></div>
+</div>
+<header class="top"><div class="wrap">
+  <div style="display:flex;align-items:center;gap:10px;min-width:0">
+    <button id="homeBtn" class="icon-btn" aria-label="All trips" style="display:none">‹</button>
+    <div style="min-width:0"><div class="eyebrow">Trip Split</div><h1 id="tripName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></h1></div>
+  </div>
+  <div class="top-right">
+    <button id="syncBtn" class="sync" title="Refresh"><span class="dot" id="syncDot"></span><span id="syncText">…</span></button>
+    <button id="themeBtn" class="icon-btn theme-btn" aria-label="Day or night mode"><span class="sun">☀️</span><span class="mn">🌙</span></button>
+    <button id="gearBtn" class="icon-btn" aria-label="Settings">⚙︎</button>
+  </div>
+</div>
+<div class="bunting" id="bunting"></div>
+</header>
+
+<main><div class="wrap">
+  <section id="v-home" class="view"></section>
+  <section id="v-setup" class="view"></section>
+  <section id="v-balances" class="view"></section>
+  <section id="v-activity" class="view"></section>
+  <section id="v-add" class="view"></section>
+  <section id="v-settings" class="view"></section>
+</div></main>
+
+<nav class="tabs" id="tabs"><div class="wrap">
+  <button data-v="balances">Balances</button>
+  <button data-v="add" class="add" id="addTab">Add</button>
+  <button data-v="activity">Activity</button>
+</div></nav>
+<div id="toast"></div>
+
+<script>
+/* ---------- small helpers ---------- */
+const $ = s => document.querySelector(s);
+const LS_LOCAL = 'tripsplit_events_v1';    // all data when SYNC_URL is empty
+const LS_PENDING = 'tripsplit_pending_v1'; // unsent entries (no signal)
+const LS_CACHE = 'tripsplit_cache_v1';     // last copy downloaded from the sheet
+const LS_ME = 'tripsplit_me_v1_';          // + trip id
+const LS_TRIPS = 'tripsplit_mytrips_v1';   // trips opened on this phone
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function money(p){
+  const neg = p < 0; p = Math.abs(Math.round(p));
+  const s = (p/100).toLocaleString('en-IN',{minimumFractionDigits: p%100 ? 2 : 0, maximumFractionDigits: 2});
+  return (neg ? '−' : '') + '₹' + s;
+}
+function toPaise(str){
+  const v = parseFloat(String(str).replace(/[,₹\s]/g,''));
+  return isFinite(v) && v > 0 ? Math.round(v*100) : 0;
+}
+function today(){ return new Date().toLocaleDateString('en-CA'); }
+function fmtDay(d){
+  try{ return new Date(d+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'}); }catch(e){ return d; }
+}
+function readLS(k, def){ try{ return JSON.parse(localStorage.getItem(k)) ?? def; }catch(e){ return def; } }
+function writeLS(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+let toastT;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* =====================================================================
+   ART + ANIMATIONS (all drawings are hand-made SVG, no images needed)
+   ===================================================================== */
+const THEME_KEY = 'tripsplit_theme_v1';
+function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{ localStorage.setItem(THEME_KEY, t); }catch(e){}
+  const m = document.querySelector('meta[name=theme-color]'); if(m) m.content = t === 'night' ? '#110b29' : '#fff3dc'; }
+applyTheme((() => { try{ return localStorage.getItem(THEME_KEY) || 'night'; }catch(e){ return 'night'; } })());
+const isNight = () => document.documentElement.getAttribute('data-theme') === 'night';
+
+function autoSVG(){
+  return `<svg class="auto" viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs><linearGradient id="beamG" x1="0" x2="1"><stop offset="0" stop-color="#fff6b0" stop-opacity=".95"/><stop offset="1" stop-color="#fff6b0" stop-opacity="0"/></linearGradient></defs>
+    <polygon class="beam" points="67,25 100,10 100,42" fill="url(#beamG)"/>
+    <g class="al" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M6 38 V22 Q6 9 20 7 H44 Q57 7 61 20 L69 30 V38 Z" fill="#2fb36d"/>
+      <path d="M6 22 Q6 9 20 7 H44 Q57 7 61 20 Z" fill="#ffd23f"/>
+      <path d="M40 20 L48 36" fill="none"/>
+      <path d="M16 25 H30" fill="none"/>
+      <circle cx="66" cy="27" r="3" fill="#fff6b0"/>
+      <g class="wh"><circle cx="18" cy="39" r="6" fill="#2a1238"/><circle cx="20" cy="37" r="1.6" fill="#fff" stroke="none"/></g>
+      <g class="wh"><circle cx="58" cy="39" r="6" fill="#2a1238"/><circle cx="60" cy="37" r="1.6" fill="#fff" stroke="none"/></g>
+    </g></svg>`;
+}
+
+function diyaSVG(){
+  return `<svg class="diya" viewBox="0 0 26 30" aria-hidden="true"><path class="flame" d="M13 3 Q19 12 13 17 Q7 12 13 3Z" fill="#ffd23f" stroke="#ff7a1a" stroke-width="1.5"/>
+    <path d="M2 18 Q13 31 24 18Z" fill="#e86a3a" stroke="#2a1238" stroke-width="2" stroke-linejoin="round"/></svg>`;
+}
+
+function chaiSVG(){
+  return `<svg viewBox="0 0 120 100" aria-hidden="true" class="lm c-gold">
+    <path class="o steam" d="M46 30 Q40 20 48 12" fill="none"/><path class="o steam" d="M60 30 Q54 18 62 8" fill="none"/><path class="o steam" d="M74 30 Q68 20 76 12" fill="none"/>
+    <path class="o y" d="M34 38 H86 L80 84 Q60 92 40 84Z"/><path class="o r" d="M36 48 H84" fill="none"/>
+    <path class="o w" d="M20 88 Q60 100 100 88" fill="none"/></svg>`;
+}
+
+/* ---- Landmarks of India ---- */
+function windows(tiers){ let s=''; tiers.forEach(([y,x1,x2]) => { for(let x=x1; x<=x2; x+=8) s += `<rect class="o y" x="${x}" y="${y}" width="4" height="5" rx="2"/>`; }); return s; }
+const LANDMARKS = {
+  taj: {name:'Taj Mahal · Agra', c:'c-sky', svg:`
+    <rect class="o w" x="26" y="50" width="68" height="26"/>
+    <path class="o w" d="M40 50 Q37 27 60 20 Q83 27 80 50Z"/><path class="o" d="M60 20 V11" fill="none"/><circle class="o y" cx="60" cy="9" r="2.2"/>
+    <path class="o w" d="M29 50 Q29 40 36.5 38 Q44 40 44 50Z"/><path class="o w" d="M76 50 Q76 40 83.5 38 Q91 40 91 50Z"/>
+    <path class="o p" d="M52 76 V62 Q60 52 68 62 V76Z"/>
+    <rect class="o w" x="12" y="34" width="7" height="42"/><path class="o w" d="M10 34 Q15.5 24 21 34Z"/>
+    <rect class="o w" x="101" y="34" width="7" height="42"/><path class="o w" d="M99 34 Q104.5 24 110 34Z"/>
+    <rect class="o b" x="4" y="76" width="112" height="3"/>`},
+  gate: {name:'India Gate · Delhi', c:'c-gold', svg:`
+    <path class="o y" d="M34 77 V27 H86 V77 H70 V52 Q60 38 50 52 V77Z"/>
+    <rect class="o y" x="30" y="19" width="60" height="9"/><rect class="o y" x="40" y="11" width="40" height="8"/>
+    <path class="o r" d="M55 11 Q60 3 65 11Z"/>
+    <path class="o g" d="M4 77 H116 V80 H4Z"/>
+    <circle class="o p" cx="18" cy="70" r="5"/><circle class="o p" cx="102" cy="70" r="5"/>`},
+  hawa: {name:'Hawa Mahal · Jaipur', c:'c-pink', svg:`
+    <path class="o p" d="M14 78 V46 H26 V36 H38 V26 H50 V14 H70 V26 H82 V36 H94 V46 H106 V78Z"/>
+    ${windows([[18,54,66],[30,42,78],[40,30,90],[50,18,102],[60,18,102],[69,18,102]])}`},
+  ghat: {name:'Ghats · Varanasi', c:'c-gold', svg:`
+    <rect class="o b" x="0" y="64" width="120" height="16"/>
+    <path class="o y" d="M6 64 H114 V58 H104 V52 H16 V58 H6Z"/>
+    <path class="o r" d="M66 52 V38 Q71 18 77 8 Q83 18 88 38 V52Z"/><path class="o" d="M77 8 V2" fill="none"/><path class="o p" d="M77 2 L85 5 L77 8Z"/>
+    <path class="o w" d="M40 52 V40 H56 V52Z"/><path class="o p" d="M36 40 Q48 28 60 40Z"/>
+    <path class="o p" d="M18 52 V44"/><path class="o y" d="M12 44 Q18 36 24 44Z"/>
+    <path class="o y" d="M26 70 H56 L50 76 H32Z"/><path class="o" d="M41 70 V62" fill="none"/>
+    <path class="o r" d="M88 72 Q94 78 100 72Z"/><path class="o y" d="M94 72 Q96 67 94 64 Q92 67 94 72Z"/>`},
+  charminar: {name:'Charminar · Hyderabad', c:'c-violet', svg:`
+    <rect class="o w" x="30" y="34" width="60" height="44"/><rect class="o y" x="30" y="29" width="60" height="6"/>
+    <path class="o p" d="M47 78 V58 Q60 42 73 58 V78Z"/>
+    <rect class="o w" x="22" y="18" width="9" height="60"/><path class="o p" d="M20 18 Q26.5 6 33 18Z"/>
+    <rect class="o w" x="89" y="18" width="9" height="60"/><path class="o p" d="M87 18 Q93.5 6 100 18Z"/>
+    <rect class="o g" x="4" y="77" width="112" height="3"/>`},
+  kerala: {name:'Backwaters · Kerala', c:'c-lime', svg:`
+    <rect class="o b" x="0" y="60" width="120" height="20"/>
+    <path class="o r" d="M18 60 H90 L82 69 H26Z"/><path class="o y" d="M28 60 Q32 44 54 42 Q76 44 80 60Z"/>
+    <path class="o" d="M100 62 Q97 42 104 22" fill="none"/>
+    <path class="o g" d="M104 22 Q90 14 80 22 Q92 20 104 25Z"/><path class="o g" d="M104 22 Q116 12 120 22 Q112 20 104 25Z"/><path class="o g" d="M104 22 Q100 8 110 4 Q104 14 105 23Z"/>`},
+  gateway: {name:'Gateway of India · Mumbai', c:'c-teal', svg:`
+    <rect class="o w" x="26" y="30" width="68" height="42"/><path class="o y" d="M50 72 V48 Q60 34 70 48 V72Z"/>
+    <rect class="o w" x="22" y="20" width="14" height="11"/><rect class="o w" x="84" y="20" width="14" height="11"/>
+    <path class="o p" d="M22 20 Q29 10 36 20Z"/><path class="o p" d="M84 20 Q91 10 98 20Z"/><path class="o p" d="M50 30 Q60 18 70 30Z"/>
+    <rect class="o b" x="0" y="72" width="120" height="8"/>`},
+  beach: {name:'Beaches · Goa', c:'c-sky', svg:`
+    <circle class="o y" cx="28" cy="22" r="10"/>
+    <rect class="o b" x="0" y="54" width="120" height="12"/><path class="o y" d="M0 66 Q60 58 120 66 V80 H0Z"/>
+    <path class="o" d="M88 68 Q86 46 92 28" fill="none"/><path class="o g" d="M92 28 Q78 20 70 28 Q82 26 92 31Z"/><path class="o g" d="M92 28 Q106 18 112 28 Q102 26 92 31Z"/>
+    <path class="o" d="M48 70 V52" fill="none"/><path class="o p" d="M34 54 Q48 38 62 54Z"/>`},
+};
+const LM_KEYS = Object.keys(LANDMARKS);
+function landmarkSVG(key, cls=''){
+  const L = LANDMARKS[key] || LANDMARKS.taj;
+  return `<svg class="lm ${L.c} ${cls}" viewBox="0 0 120 80" aria-hidden="true">${L.svg}</svg>`;
+}
+function sceneFor(id, name=''){
+  const n = name.toLowerCase();
+  const map = [[/banaras|benaras|varanasi|kashi/,'ghat'],[/agra|taj/,'taj'],[/delhi/,'gate'],[/jaipur|rajasthan|udaipur|jodhpur/,'hawa'],
+    [/hyderabad/,'charminar'],[/kerala|munnar|alleppey|kochi/,'kerala'],[/mumbai|bombay/,'gateway'],[/goa|beach|gokarna|pondi/,'beach']];
+  for(const [re,k] of map) if(re.test(n)) return k;
+  let h = 0; for(const ch of String(id)) h = (h*31 + ch.charCodeAt(0)) >>> 0;
+  return LM_KEYS[h % LM_KEYS.length];
+}
+
+/* ---- categories: emoji + colour guessed from the description ---- */
+const CATS = [
+  [/chai|tea|coffee/i,'☕','#ffb703'], [/paan|sweet|mithai|lassi|rabri|malai|jalebi|ice ?cream/i,'🍨','#ff8fb8'],
+  [/beer|bar|drink|party|daru/i,'🍻','#ffb703'],
+  [/food|dinner|lunch|breakfast|kachori|thali|restaurant|snack|khana|meal|biryani|pizza|dosa|chaat|maggi/i,'🍛','#ff8a3d'],
+  [/boat|nav|cruise|ganga|ferry/i,'🛶','#4cc9f0'], [/hotel|stay|room|hostel|airbnb|oyo|homestay/i,'🏨','#a98bff'],
+  [/auto|rickshaw|cab|taxi|uber|ola|rapido|bus|metro|petrol|fuel|toto/i,'🛺','#2fb36d'],
+  [/train|rail|irctc|flight|plane/i,'🚆','#00b3a1'], [/shop|saree|gift|market|souvenir|clothes/i,'🛍️','#ff3d7f'],
+  [/temple|aarti|puja|darshan|mandir|prasad/i,'🪔','#ff7a1a'], [/ticket|entry|museum|show/i,'🎟️','#ffd23f'],
+  [/medicine|pharma|doctor/i,'💊','#5fd8ff'], [/water|bisleri|grocer/i,'💧','#4cc9f0'],
+];
+const FALLBACK_COLORS = ['#ffe066','#9be7ff','#ffb3cf','#b5f5a8','#d6c6ff'];
+function catFor(desc, i){ for(const [re,e,c] of CATS) if(re.test(desc||'')) return {e, c}; return {e:'🧾', c:FALLBACK_COLORS[i % FALLBACK_COLORS.length]}; }
+const AV_COLORS = ['#ff3d7f','#ff9a1f','#00b3a1','#5b3cc4','#2fb36d','#4cc9f0','#e0344f','#c77dff'];
+function avatar(id){
+  const i = Math.max(0, (S.members||[]).findIndex(m => m.id === id));
+  const n = (typeof nameOf === 'function' ? nameOf(id) : '?').trim();
+  const c = AV_COLORS[i % AV_COLORS.length];
+  return `<span class="av" style="background:${c};color:${c}"><span style="color:#fff">${esc(n.charAt(0).toUpperCase())}</span></span>`;
+}
+
+/* ---- effects ---- */
+const fx = {
+  layer(){ let l = document.querySelector('.fx-layer'); if(!l){ l = document.createElement('div'); l.className = 'fx-layer'; document.body.appendChild(l); } return l; },
+  reduced(){ return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; },
+
+  // the little auto that zooms across any button you tap
+  drive(btn){
+    if(this.reduced()) return;
+    const r = btn.getBoundingClientRect(); if(r.width < 40) return;
+    const a = document.createElement('div'); a.className = 'fx-auto'; a.innerHTML = autoSVG();
+    const w = Math.min(58, r.height * 1.6);
+    a.style.width = w + 'px'; a.style.left = (r.left - w*0.4) + 'px'; a.style.top = (r.top + r.height/2 - w*0.3) + 'px';
+    a.style.setProperty('--d', (r.width) + 'px');
+    document.body.appendChild(a); setTimeout(() => a.remove(), 950);
+    for(let k=0; k<6; k++) setTimeout(() => {
+      const p = document.createElement('div'); p.className = 'puff';
+      p.style.left = (r.left + (k/6)*r.width - 4) + 'px'; p.style.top = (r.top + r.height/2 + 4) + 'px';
+      document.body.appendChild(p); setTimeout(() => p.remove(), 750);
+    }, 80 + k*120);
+  },
+
+  sticker(text, sub){
+    const s = document.createElement('div'); s.className = 'sticker';
+    s.innerHTML = esc(text) + (sub ? `<small>${esc(sub)}</small>` : '');
+    document.body.appendChild(s); setTimeout(() => s.remove(), 1700);
+  },
+
+  petals(n=34){
+    const L = this.layer(), cols = ['#ff9f1c','#ffbf00','#ff5d8f','#ff7a1a','#fff3b0','#e63946'];
+    for(let i=0;i<n;i++){
+      const p = document.createElement('div'); p.className = 'petal';
+      p.style.left = Math.random()*100 + 'vw'; p.style.background = cols[i % cols.length];
+      p.style.setProperty('--x', (Math.random()*120 - 60) + 'px'); p.style.setProperty('--r', (Math.random()*720 - 360) + 'deg');
+      p.style.animationDuration = (1.6 + Math.random()*1.4) + 's'; p.style.animationDelay = (Math.random()*0.4) + 's';
+      L.appendChild(p); setTimeout(() => p.remove(), 3600);
+    }
+  },
+
+  fireworks(n=3){
+    const L = this.layer(), cols = ['#ff4fae','#ffd23f','#2ef2d6','#7dff6b','#a98bff','#ff9a3d'];
+    for(let f=0; f<n; f++) setTimeout(() => {
+      const x = 15 + Math.random()*70, h = window.innerHeight * (0.45 + Math.random()*0.25);
+      const rk = document.createElement('div'); rk.className = 'rocket'; rk.style.left = x + 'vw'; rk.style.setProperty('--h', h + 'px');
+      L.appendChild(rk); setTimeout(() => rk.remove(), 650);
+      setTimeout(() => {
+        const c = cols[Math.floor(Math.random()*cols.length)];
+        for(let i=0;i<22;i++){
+          const s = document.createElement('div'); s.className = 'spark'; s.style.color = i%3 ? c : '#fff';
+          s.style.left = x + 'vw'; s.style.top = (window.innerHeight - h) + 'px';
+          const ang = (i/22)*Math.PI*2, dist = 50 + Math.random()*50;
+          s.style.setProperty('--x', Math.cos(ang)*dist + 'px'); s.style.setProperty('--y', Math.sin(ang)*dist + 'px');
+          L.appendChild(s); setTimeout(() => s.remove(), 950);
+        }
+      }, 560);
+    }, f*380);
+  },
+
+  party(kind){
+    const lines = {
+      expense: [['Likh liya! ✍️','Expense added'],['Paisa vasool! 💰','Expense added'],['Badhiya! ✨','Expense added'],['Hisaab ready! 🧾','Expense added'],['Shabaash! 🎉','Expense added']],
+      edit:    [['Badal diya! 🔁','Expense updated']],
+      payment: [['Udhaar khatam! 🤝','Repayment saved'],['Chukta! ✅','Repayment saved'],['Paise pahunch gaye! 💸','Repayment saved']],
+      settled: [['Sab barabar! 🎊','Everyone is settled up']],
+      trip:    [['Chalo, yatra shuru! 🛺','Trip created, now share the link']],
+    }[kind] || [['Done! ✨','']];
+    const [t, s] = lines[Math.floor(Math.random()*lines.length)];
+    this.sticker(isNight() ? t.replace(/\s\S+$/, ' 🪔') : t, s);
+    if(this.reduced()) return;
+    const big = kind === 'settled' || kind === 'trip';
+    if(isNight()) this.fireworks(big ? 5 : 2); else this.petals(big ? 60 : 30);
+  },
+
+  toggleTheme(){
+    const next = isNight() ? 'day' : 'night';
+    const f = document.createElement('div'); f.className = 'theme-flash';
+    f.style.background = next === 'night' ? '#110b29' : '#fff6c2';
+    document.body.appendChild(f); setTimeout(() => f.remove(), 650);
+    applyTheme(next);
+    toast(next === 'night' ? '🌙 Raat mode: glow on!' : '☀️ Din mode: rang hi rang!');
+  }
+};
+
+// every main button gets the auto zoom
+document.addEventListener('click', e => {
+  const b = e.target.closest('.primary, .btn, .ghost, nav.tabs .add');
+  if(b) fx.drive(b);
+}, true);
+
+/* ---------- data store ----------
+   Everything is saved as a list of "events" (add/edit/delete), one per row in the sheet.
+   Balances are always recalculated from that list, so nothing can get out of sync. */
+let serverEvents = SYNC_URL ? readLS(LS_CACHE, []) : readLS(LS_LOCAL, []);
+let pending = SYNC_URL ? readLS(LS_PENDING, []) : [];
+let currentTrip = new URLSearchParams(location.search).get('trip') || '';
+let me = currentTrip ? readLS(LS_ME + currentTrip, '') : '';
+let loadedOnce = false;
+function rememberTrip(id){ const t = readLS(LS_TRIPS, []); if(!t.includes(id)){ t.push(id); writeLS(LS_TRIPS, t); } }
+function setMe(v){ me = v; writeLS(LS_ME + currentTrip, me); }
+function goTrip(id){
+  currentTrip = id || '';
+  me = currentTrip ? readLS(LS_ME + currentTrip, '') : '';
+  const url = location.pathname + (currentTrip ? '?trip=' + encodeURIComponent(currentTrip) : '');
+  history.pushState({}, '', url);
+  view = currentTrip ? 'balances' : 'home';
+  if(!currentTrip) $('#v-home').innerHTML = '';
+  render(); show(view);
+}
+function tripLink(id){ return location.origin + location.pathname + '?trip=' + encodeURIComponent(id); }
+async function shareTrip(){
+  const url = tripLink(currentTrip), name = tripName(currentTrip);
+  const text = `Add our ${name} expenses here: ${url}`;
+  try{ if(navigator.share){ await navigator.share({title: name, text, url}); return; } }catch(e){ return; }
+  try{ await navigator.clipboard.writeText(url); toast('Link copied, paste it in WhatsApp'); }
+  catch(e){ prompt('Copy this link:', url); }
+}
+function allTrips(){
+  const m = new Map();
+  allEvents().forEach(ev => { if(ev.type === 'trip') m.set(ev.data.tripId, {id: ev.data.tripId, name: ev.data.name, ts: ev.ts}); });
+  return m;
+}
+function tripName(id){ return (allTrips().get(id) || {}).name || 'Trip'; }
+let syncState = SYNC_URL ? 'busy' : 'local';
+let lastSync = null;
+
+function allEvents(){
+  const ids = new Set(serverEvents.map(e => e.id));
+  return serverEvents.concat(pending.filter(p => !ids.has(p.id)));
+}
+
+async function pull(){
+  if(!SYNC_URL){ render(); return; }
+  setSync('busy');
+  try{
+    const r = await fetch(SYNC_URL + (SYNC_URL.includes('?')?'&':'?') + 't=' + Date.now());
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || 'Bad reply');
+    serverEvents = j.events;
+    writeLS(LS_CACHE, serverEvents);
+    const ids = new Set(serverEvents.map(e => e.id));
+    pending = pending.filter(p => !ids.has(p.id));
+    writeLS(LS_PENDING, pending);
+    lastSync = new Date();
+    setSync('ok');
+  }catch(e){ setSync('err'); }
+  loadedOnce = true;
+  render();
+  if(pending.length) flush();
+}
+
+let flushing = false;
+async function flush(){
+  if(!SYNC_URL || flushing) return;
+  flushing = true;
+  let ev;
+  while((ev = pending[0])){
+    try{
+      const r = await fetch(SYNC_URL, {method:'POST', body: JSON.stringify(ev)});
+      const j = await r.json();
+      if(!j.ok) throw new Error(j.error || 'Bad reply');
+      pending = pending.filter(p => p.id !== ev.id);
+      if(!serverEvents.some(s => s.id === ev.id)) serverEvents.push(ev);
+      writeLS(LS_PENDING, pending); writeLS(LS_CACHE, serverEvents);
+      lastSync = new Date(); setSync('ok');
+    }catch(e){ setSync('err'); break; }
+  }
+  flushing = false;
+  render();
+}
+
+function addEvent(type, data){
+  if(type !== 'trip') data = Object.assign({trip: currentTrip}, data);
+  const ev = {id: uid(), ts: Date.now(), type, data};
+  if(SYNC_URL){ pending.push(ev); writeLS(LS_PENDING, pending); render(); flush(); }
+  else { serverEvents.push(ev); writeLS(LS_LOCAL, serverEvents); render(); }
+}
+
+function setSync(s){
+  syncState = s;
+  const dot = $('#syncDot'), txt = $('#syncText');
+  dot.className = 'dot ' + s;
+  const unsent = pending.length;
+  if(s==='local') txt.textContent = 'This phone only';
+  else if(s==='busy') txt.textContent = 'Syncing…';
+  else if(s==='err') txt.textContent = unsent ? `Offline · ${unsent} unsent` : 'Offline';
+  else txt.textContent = unsent ? `${unsent} sending…` : 'Synced ' + (lastSync ? lastSync.toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'}) : '');
+}
+
+/* ---------- turn events into balances ---------- */
+function buildState(){
+  let members = [];
+  const items = new Map();
+  allEvents().forEach((ev, i) => {
+    const d = ev.data || {};
+    if(ev.type === 'trip' || d.trip !== currentTrip) return;
+    if(ev.type === 'members') members = d.members || [];
+    else if(ev.type === 'expense' || ev.type === 'payment') items.set(d.key, {kind: ev.type, data: d, order: i, ts: ev.ts, pending: pending.some(p => p.id === ev.id)});
+    else if(ev.type === 'delete') items.delete(d.key);
+  });
+  const net = {}, paid = {}, share = {};
+  const ensure = id => { if(!(id in net)){ net[id]=0; paid[id]=0; share[id]=0; } };
+  members.forEach(m => ensure(m.id));
+  let total = 0;
+  for(const it of items.values()){
+    const d = it.data;
+    if(it.kind === 'expense'){
+      ensure(d.paidBy); net[d.paidBy] += d.amount; paid[d.paidBy] += d.amount; total += d.amount;
+      for(const [id, s] of Object.entries(d.split || {})){ ensure(id); net[id] -= s; share[id] += s; }
+    } else {
+      ensure(d.from); ensure(d.to); net[d.from] += d.amount; net[d.to] -= d.amount;
+    }
+  }
+  return {members, items: [...items.values()], net, paid, share, total};
+}
+
+/* Fewest payments needed to clear all debts */
+function settlePlan(net){
+  const cred = [], deb = [];
+  for(const [id, v] of Object.entries(net)){ if(v > 0) cred.push([id, v]); else if(v < 0) deb.push([id, -v]); }
+  cred.sort((a,b) => b[1]-a[1]); deb.sort((a,b) => b[1]-a[1]);
+  const out = []; let i = 0, j = 0;
+  while(i < deb.length && j < cred.length){
+    const amt = Math.min(deb[i][1], cred[j][1]);
+    if(amt > 0) out.push({from: deb[i][0], to: cred[j][0], amount: amt});
+    deb[i][1] -= amt; cred[j][1] -= amt;
+    if(deb[i][1] === 0) i++;
+    if(cred[j][1] === 0) j++;
+  }
+  return out;
+}
+
+function splitEqual(total, ids){
+  const n = ids.length, out = {};
+  if(!n) return out;
+  const base = Math.floor(total / n); let rem = total - base*n;
+  ids.forEach(id => { out[id] = base + (rem > 0 ? 1 : 0); if(rem > 0) rem--; });
+  return out;
+}
+
+/* ---------- views ---------- */
+let view = 'balances';
+let S = buildState();
+const nameOf = id => (S.members.find(m => m.id === id) || {}).name || 'Someone';
+
+function show(v){
+  view = v;
+  document.querySelectorAll('.view').forEach(el => el.classList.toggle('on', el.id === 'v-' + v));
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v && v !== 'add'));
+  $('#tabs').style.display = (v === 'setup' || v === 'home') ? 'none' : '';
+  $('#homeBtn').style.display = (v === 'home') ? 'none' : '';
+  $('#gearBtn').style.display = (v === 'home' || v === 'setup') ? 'none' : '';
+  window.scrollTo(0,0);
+}
+
+function render(){
+  S = buildState();
+  setSync(syncState);
+  if(!currentTrip){
+    $('#tripName').textContent = 'My trips';
+    document.title = 'Trip Split';
+    renderHome(); if(view !== 'home') show('home');
+    return;
+  }
+  const known = allTrips().has(currentTrip);
+  $('#tripName').textContent = known ? tripName(currentTrip) : 'Loading…';
+  document.title = $('#tripName').textContent + ' · Split';
+  if(known) rememberTrip(currentTrip);
+  if(!S.members.length){
+    if(!known && (loadedOnce || !SYNC_URL)){
+      $('#v-setup').innerHTML = `<div class="card"><h2>Trip not found</h2><div class="muted" style="font-size:14px">This link doesn't match any trip. Check that you copied the full link.</div><button class="ghost" onclick="goTrip('')">See all trips</button></div>`;
+    } else if(!known){
+      $('#v-setup').innerHTML = `<div class="empty"><div class="road-strip">${autoSVG()}</div>Loading trip… auto aa raha hai!</div>`;
+    } else if(!$('#v-setup #saveNames')){ renderSetup(); }
+    if(view !== 'setup') show('setup');
+    return;
+  }
+  if(view === 'setup') show('balances');
+  if(me && !S.members.some(m => m.id === me)) me = '';
+  renderBalances(); renderActivity();
+}
+
+function syncBanner(){
+  if(SYNC_URL) return '';
+  return `<div class="banner">Sync isn't set up yet, so data is saved only on this phone. Add your Google Sheet link (SYNC_URL) to share it with the group.</div>`;
+}
+
+function renderBalances(){
+  const el = $('#v-balances');
+  let hero = '';
+  if(!me){
+    hero = `<div class="card"><h2><span class="em">🙋</span> Who are you?</h2><div class="muted" style="font-size:14px;margin-bottom:8px">Pick your name to see what you owe or are owed.</div>
+      <select id="mePick"><option value="">Choose…</option>${S.members.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('')}</select></div>`;
+  } else {
+    const v = S.net[me] || 0;
+    const sk = sceneFor(currentTrip, tripName(currentTrip));
+    hero = `<div class="card hero">
+      <div class="label">${esc(nameOf(me))}, ${v>0?'you get back 🤑':v<0?'you owe 😅':'you are'}</div>
+      <div class="big ${v>0?'good':v<0?'bad':''}">${v===0?'All settled! 🎊':money(Math.abs(v))}</div>
+      <div class="place">📍 ${esc(LANDMARKS[sk].name)}</div>
+      <div class="road"></div>
+      ${landmarkSVG(sk, 'scene')}
+      <div class="diyas">${diyaSVG()}${diyaSVG()}${diyaSVG()}</div>
+      <svg class="hdeco moon" viewBox="0 0 40 40"><path d="M26 4 A16 16 0 1 0 36 28 A13 13 0 1 1 26 4Z" fill="#ffe9a8"/></svg>  <svg class="hdeco kite" viewBox="0 0 60 80"><path d="M30 2 L54 30 L30 58 L6 30Z" fill="#ff3d7f" stroke="#2a1238" stroke-width="2.5" stroke-linejoin="round"/>    <path d="M30 2 V58 M6 30 H54" stroke="#2a1238" stroke-width="2"/><path d="M30 2 L54 30 L30 30Z" fill="#ffb703"/>    <path d="M30 58 Q24 66 32 70 Q40 74 30 80" fill="none" stroke="#2a1238" stroke-width="2"/><path d="M26 64 l6 3 -6 3z" fill="#00b3a1"/></svg>  <svg class="hdeco lantern" viewBox="0 0 40 56"><path d="M8 10 H32 L36 40 Q20 50 4 40Z" fill="#ff9a3d"/><path d="M8 10 H32 L34 24 H6Z" fill="#ffd23f"/>    <rect x="12" y="4" width="16" height="6" rx="2" fill="#e0344f"/><path d="M14 46 V54 M20 48 V56 M26 46 V54" stroke="#ffd23f" stroke-width="2"/></svg>
+    </div>`;
+  }
+  const plan = settlePlan(S.net);
+  const settle = plan.length ? plan.map(p => `
+    <div class="row settle-row">
+      <div class="who">${avatar(p.from)}<b>${esc(nameOf(p.from))}</b> <span class="muted">→</span> ${avatar(p.to)}<b>${esc(nameOf(p.to))}</b>
+        ${(p.from===me||p.to===me)?'<span class="chip">you</span>':''}
+        <div class="bad amtline">${money(p.amount)}</div></div>
+      <button class="btn small" data-settle="${esc(p.from)}|${esc(p.to)}|${p.amount}">Mark paid</button>
+    </div>`).join('') : `<div class="muted" style="font-weight:700">Nobody owes anything right now. Sab barabar! 🎉</div>`;
+
+  const ids = Object.keys(S.net);
+  const rows = ids.map(id => {
+    const v = S.net[id];
+    return `<tr><td>${avatar(id)}${esc(nameOf(id))}${id===me?' <span class="chip">you</span>':''}</td><td>${money(S.paid[id])}</td><td>${money(S.share[id])}</td>
+      <td class="${v>0?'good':v<0?'bad':'muted'}" style="font-weight:600">${v>0?'+':''}${money(v)}</td></tr>`;
+  }).join('');
+
+  const html = syncBanner() + hero + `
+    <div class="card"><h2><span class="em">🤝</span> Settle up</h2>${settle}</div>
+    <div class="card"><h2><span class="em">👥</span> Everyone · total ${money(S.total)}</h2>
+      <table><thead><tr><th>Name</th><th>Paid</th><th>Share</th><th>Balance</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="note">“Paid” is what they spent for the group, “Share” is their part of all expenses, and “Balance” includes repayments. Plus means they get money back.</div>
+    </div>
+    <button class="ghost" id="shareBtn">📤 Share this trip's link with the group</button>`;
+  if(el._last === html + me) return;
+  el._last = html + me; el.innerHTML = html;
+  const pick = $('#mePick');
+  if(pick) pick.onchange = () => { setMe(pick.value); render(); };
+  $('#shareBtn').onclick = shareTrip;
+  el.querySelectorAll('[data-settle]').forEach(b => b.onclick = () => {
+    const [from, to, amt] = b.dataset.settle.split('|');
+    openAdd({kind:'payment', prefill:{from, to, amount:+amt}});
+  });
+}
+
+function renderActivity(){
+  const el = $('#v-activity');
+  if(!S.items.length){ el._last = ""; el.innerHTML = syncBanner() + `<div class="empty">${chaiSVG()}Chai pe charcha? No expenses yet.<br>Tap <b>Add</b> to add the first one.</div>`; return; }
+  const sorted = [...S.items].sort((a,b) => (b.data.date||'').localeCompare(a.data.date||'') || b.order - a.order);
+  let html = syncBanner(), lastDay = null, idx = 0;
+  for(const it of sorted){
+    const i = idx++;
+    const d = it.data;
+    if(d.date !== lastDay){ html += `<div class="day">${esc(fmtDay(d.date))}</div>`; lastDay = d.date; }
+    if(it.kind === 'expense'){
+      let mine = '';
+      if(me){
+        const myShare = (d.split||{})[me] || 0;
+        if(d.paidBy === me){ const lent = d.amount - myShare; mine = lent>0 ? `<div class="sub good">you lent ${money(lent)}</div>` : `<div class="sub muted">just you</div>`; }
+        else if(myShare > 0) mine = `<div class="sub bad">you owe ${money(myShare)}</div>`;
+        else mine = `<div class="sub muted">not involved</div>`;
+      }
+      const n = Object.keys(d.split||{}).length;
+      const cat = catFor(d.desc, i);
+      html += `<button class="item" style="--i:${Math.min(i,12)}" data-key="${esc(d.key)}">
+        <div class="ico" style="--c:${cat.c}">${cat.e}</div>
+        <div class="mid"><div class="title">${esc(d.desc)}</div>
+          <div class="sub">${esc(nameOf(d.paidBy))} paid · split ${n===S.members.length?'with everyone':'among '+n}${it.pending?' · <span class="pending">sending…</span>':''}</div></div>
+        <div class="amt">${money(d.amount)}${mine}</div></button>`;
+    } else {
+      html += `<button class="item" style="--i:${Math.min(i,12)}" data-key="${esc(d.key)}">
+        <div class="ico" style="--c:#5dff9d">💸</div>
+        <div class="mid"><div class="title">${esc(nameOf(d.from))} paid ${esc(nameOf(d.to))}</div>
+          <div class="sub">Repayment${it.pending?' · <span class="pending">sending…</span>':''}</div></div>
+        <div class="amt good">${money(d.amount)}</div></button>`;
+    }
+  }
+  if(el._last === html) return;
+  el._last = html; el.innerHTML = html;
+  el.querySelectorAll('[data-key]').forEach(b => b.onclick = () => {
+    const it = S.items.find(x => x.data.key === b.dataset.key);
+    if(it) openAdd({kind: it.kind, edit: it.data});
+  });
+}
+
+/* ---------- add / edit form ---------- */
+let formKind = 'expense', splitMode = 'equal', editing = null;
+
+function memberOptions(sel){
+  return S.members.map(m => `<option value="${esc(m.id)}" ${m.id===sel?'selected':''}>${esc(m.name)}</option>`).join('');
+}
+
+function openAdd(opts = {}){
+  formKind = opts.kind || 'expense';
+  editing = opts.edit || null;
+  const el = $('#v-add');
+  const isEdit = !!editing;
+  const e = editing || {};
+  const pre = opts.prefill || {};
+
+  if(formKind === 'expense'){
+    splitMode = e.mode || 'equal';
+    el.innerHTML = `
+      ${isEdit ? '<h1 style="margin:0 0 12px">Edit expense</h1>' : segHTML()}
+      <div class="card">
+        <label>What was it for?<input type="text" id="eDesc" maxlength="80" placeholder="e.g. Boat ride, dinner, hotel" value="${esc(e.desc||'')}"></label>
+        <label>Amount (₹)<input id="eAmt" inputmode="decimal" placeholder="0" value="${e.amount? (e.amount/100) : ''}"></label>
+        <div class="row2">
+          <label>Paid by<select id="ePaid">${memberOptions(e.paidBy || me || S.members[0].id)}</select></label>
+          <label>Date<input type="date" id="eDate" value="${esc(e.date || today())}"></label>
+        </div>
+        <div class="split-head"><span>Split between</span>
+          <div class="seg small" id="modeSeg"><button type="button" data-m="equal">Equally</button><button type="button" data-m="exact">Exact ₹</button></div>
+        </div>
+        <div id="eSplit"></div>
+        <div id="eNote" class="note"></div>
+      </div>
+      <button class="primary" id="eSave">${isEdit?'Save changes':'Add expense'}</button>
+      ${isEdit?'<button class="danger" id="eDel">Delete expense</button><button class="ghost" id="eCancel">Cancel</button>':''}`;
+    buildSplit(e);
+    $('#eAmt').oninput = updateNote;
+    el.querySelectorAll('#modeSeg button').forEach(b => b.onclick = () => {
+      const cur = readSplitInputs();
+      splitMode = b.dataset.m; buildSplit({split: cur.split, mode: splitMode, keepChecks: cur.checked});
+    });
+    $('#eSave').onclick = saveExpense;
+    if(isEdit){ $('#eDel').onclick = () => del('expense'); $('#eCancel').onclick = () => show('activity'); }
+  } else {
+    el.innerHTML = `
+      ${isEdit ? '<h1 style="margin:0 0 12px">Edit repayment</h1>' : segHTML()}
+      <div class="card">
+        <div class="muted" style="font-size:14px">Record money one person gave back to another (cash, UPI, etc.).</div>
+        <div class="row2">
+          <label>Who paid<select id="pFrom">${memberOptions(e.from || pre.from || me || S.members[0].id)}</select></label>
+          <label>To whom<select id="pTo">${memberOptions(e.to || pre.to || (S.members[1]||S.members[0]).id)}</select></label>
+        </div>
+        <label>Amount (₹)<input id="pAmt" inputmode="decimal" placeholder="0" value="${(e.amount||pre.amount) ? ((e.amount||pre.amount)/100) : ''}"></label>
+        <label>Date<input type="date" id="pDate" value="${esc(e.date || today())}"></label>
+      </div>
+      <button class="primary" id="pSave">${isEdit?'Save changes':'Save repayment'}</button>
+      ${isEdit?'<button class="danger" id="pDel">Delete repayment</button><button class="ghost" id="pCancel">Cancel</button>':''}`;
+    $('#pSave').onclick = savePayment;
+    if(isEdit){ $('#pDel').onclick = () => del('payment'); $('#pCancel').onclick = () => show('activity'); }
+  }
+  if(!isEdit) el.querySelectorAll('#kindSeg button').forEach(b => {
+    b.classList.toggle('on', b.dataset.k === formKind);
+    b.onclick = () => openAdd({kind: b.dataset.k});
+  });
+  show('add');
+}
+function segHTML(){ return `<div class="seg" id="kindSeg" style="margin-bottom:14px"><button data-k="expense">Expense</button><button data-k="payment">Repayment</button></div>`; }
+
+function buildSplit(e){
+  document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.m === splitMode));
+  const box = $('#eSplit');
+  const split = e.split || null;
+  if(splitMode === 'equal'){
+    const checked = e.keepChecks || (split ? Object.keys(split).filter(k => split[k] > 0) : S.members.map(m => m.id));
+    box.innerHTML = `<div style="text-align:right;margin-bottom:4px"><button type="button" class="linkbtn" id="allBtn">Select all</button></div>` +
+      S.members.map(m => `<label class="srow" style="margin:0;color:var(--ink);font-size:16px">
+        <input type="checkbox" data-id="${esc(m.id)}" ${checked.includes(m.id)?'checked':''}>
+        <span class="n">${esc(m.name)}</span><span class="muted" data-per="${esc(m.id)}"></span></label>`).join('');
+    box.querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = updateNote);
+    $('#allBtn').onclick = () => {
+      const boxes = [...box.querySelectorAll('input[type=checkbox]')];
+      const all = boxes.every(c => c.checked);
+      boxes.forEach(c => c.checked = !all); updateNote();
+    };
+  } else {
+    box.innerHTML = S.members.map(m => `<div class="srow"><span class="n">${esc(m.name)}</span>
+      <input class="ex" inputmode="decimal" data-id="${esc(m.id)}" placeholder="0" value="${split && split[m.id] ? split[m.id]/100 : ''}"></div>`).join('');
+    box.querySelectorAll('input.ex').forEach(i => i.oninput = updateNote);
+  }
+  updateNote();
+}
+
+function readSplitInputs(){
+  const box = $('#eSplit');
+  if(splitMode === 'equal'){
+    const checked = [...box.querySelectorAll('input[type=checkbox]:checked')].map(c => c.dataset.id);
+    return {checked, split: splitEqual(toPaise($('#eAmt').value), checked)};
+  }
+  const split = {};
+  box.querySelectorAll('input.ex').forEach(i => { const v = toPaise(i.value); if(v) split[i.dataset.id] = v; });
+  return {checked: Object.keys(split), split};
+}
+
+function updateNote(){
+  const amt = toPaise($('#eAmt').value);
+  const note = $('#eNote'); note.className = 'note';
+  const {checked, split} = readSplitInputs();
+  if(splitMode === 'equal'){
+    document.querySelectorAll('[data-per]').forEach(s => s.textContent = split[s.dataset.per] ? money(split[s.dataset.per]) : '');
+    note.textContent = checked.length ? (amt ? `${money(amt)} ÷ ${checked.length} people` : '') : 'Pick at least one person.';
+    if(!checked.length) note.className = 'note warn';
+  } else {
+    const sum = Object.values(split).reduce((a,b) => a+b, 0);
+    const left = amt - sum;
+    note.textContent = left === 0 ? (amt ? 'Adds up ✓' : '') : left > 0 ? `${money(left)} still to assign` : `${money(-left)} too much`;
+    if(left !== 0) note.className = 'note warn';
+  }
+}
+
+function saveExpense(){
+  const desc = $('#eDesc').value.trim();
+  const amount = toPaise($('#eAmt').value);
+  if(!desc) return toast('Add a short description');
+  if(!amount) return toast('Enter the amount');
+  const {split} = readSplitInputs();
+  const ids = Object.keys(split);
+  if(!ids.length) return toast('Choose who to split with');
+  const sum = Object.values(split).reduce((a,b) => a+b, 0);
+  if(sum !== amount) return toast('Split amounts must add up to the total');
+  addEvent('expense', {
+    key: editing ? editing.key : uid(), desc, amount, paidBy: $('#ePaid').value,
+    date: $('#eDate').value || today(), mode: splitMode, split
+  });
+  fx.party(editing ? 'edit' : 'expense');
+  show('activity');
+}
+
+function savePayment(){
+  const from = $('#pFrom').value, to = $('#pTo').value, amount = toPaise($('#pAmt').value);
+  if(from === to) return toast('Pick two different people');
+  if(!amount) return toast('Enter the amount');
+  addEvent('payment', {key: editing ? editing.key : uid(), from, to, amount, date: $('#pDate').value || today()});
+  fx.party(Object.values(buildState().net).every(v => v === 0) ? 'settled' : 'payment');
+  show('balances');
+}
+
+function del(kind){
+  if(!confirm(kind === 'expense' ? 'Delete this expense for everyone?' : 'Delete this repayment for everyone?')) return;
+  addEvent('delete', {key: editing.key});
+  toast('Deleted');
+  show('activity');
+}
+
+/* ---------- names (first-time setup + settings) ---------- */
+function namesForm(list, btnText){
+  return `<div id="nameList">${list.map(m => nameRow(m)).join('')}</div>
+    <button type="button" class="ghost" id="addName">＋ Add another person</button>
+    <button class="primary" id="saveNames">${btnText}</button>`;
+}
+function nameRow(m){ return `<input type="text" class="nm" data-id="${esc(m.id||'')}" placeholder="Name" maxlength="24" value="${esc(m.name||'')}" style="margin-top:8px">`; }
+function wireNames(after){
+  $('#addName').onclick = () => $('#nameList').insertAdjacentHTML('beforeend', nameRow({}));
+  $('#saveNames').onclick = () => {
+    const members = [...document.querySelectorAll('.nm')]
+      .map(i => ({id: i.dataset.id || ('m' + uid()), name: i.value.trim()}))
+      .filter(m => m.name);
+    const oldIds = S.members.map(m => m.id);
+    const missing = oldIds.filter(id => !members.some(m => m.id === id));
+    if(members.length < 2) return toast('Add at least 2 names');
+    if(missing.length) return toast("You can rename people but not remove them");
+    addEvent('members', {members});
+    toast('Names saved'); after && after();
+  };
+}
+function renderSetup(){
+  $('#v-setup').innerHTML = syncBanner() + `<div class="card"><h2>Who's on the trip?</h2>
+    <div class="muted" style="font-size:14px">Type everyone's name once. Only one person needs to do this, and the rest of you will see the names automatically.</div>
+    ${namesForm(Array.from({length:4}, () => ({})), "Start tracking")}</div>`;
+  wireNames(() => { view = 'balances'; render(); show('balances'); });
+}
+function renderSettings(){
+  $('#v-settings').innerHTML = `
+    <div class="card"><h2>Trip name</h2>
+      <input type="text" id="tripNameIn" maxlength="40" value="${esc(tripName(currentTrip))}">
+      <button class="ghost" id="tripRename">Rename trip</button>
+      <button class="ghost" id="shareBtn2">📤 Share trip link</button></div>
+    <div class="card"><h2>I am</h2>
+      <select id="meSel"><option value="">Choose…</option>${memberOptions(me)}</select></div>
+    <div class="card"><h2>Trip members</h2>
+      <div class="muted" style="font-size:14px">Fix a spelling or add someone. Changes show up for everyone.</div>
+      ${namesForm(S.members, 'Save names')}</div>
+    <div class="card"><h2>Sync</h2><div class="muted" style="font-size:14px">${SYNC_URL
+      ? 'Connected to your Google Sheet. Every expense is also saved there as a backup.'
+      : 'Not connected, so data is saved on this phone only. Paste your Apps Script link into SYNC_URL in the file.'}</div></div>
+    <button class="ghost" id="setBack">Done</button>`;
+  $('#meSel').onchange = e => { setMe(e.target.value); toast('Saved'); render(); };
+  $('#tripRename').onclick = () => {
+    const n = $('#tripNameIn').value.trim(); if(!n) return toast('Enter a trip name');
+    addEvent('trip', {tripId: currentTrip, name: n}); toast('Trip renamed');
+  };
+  $('#shareBtn2').onclick = shareTrip;
+  wireNames(() => show('balances'));
+  $('#setBack').onclick = () => show('balances');
+}
+
+/* ---------- home: list of trips + new trip ---------- */
+function wireHomeList(){ $('#v-home').querySelectorAll('[data-trip]').forEach(b => b.onclick = () => goTrip(b.dataset.trip)); }
+function renderHome(){
+  const trips = allTrips();
+  const mine = readLS(LS_TRIPS, []).filter(id => trips.has(id)).map(id => trips.get(id)).sort((a,b) => b.ts - a.ts);
+  const list = mine.length ? mine.map((t,i) => { const sk = sceneFor(t.id, t.name); return `<button class="item" style="--i:${i}" data-trip="${esc(t.id)}">
+      <div class="thumb">${landmarkSVG(sk)}</div><div class="mid"><div class="title">${esc(t.name)}</div><div class="sub">${esc(LANDMARKS[sk].name)}</div></div><div class="muted" style="font-size:22px;font-weight:800">›</div></button>`; }).join('')
+    : `<div class="empty">${(SYNC_URL && !loadedOnce) ? 'Loading…' : 'No trips yet. Create your first one below.'}</div>`;
+  if($('#homeList')){ $('#homeList').innerHTML = list; wireHomeList(); return; }
+  const strip = LM_KEYS.map(k => `<div class="lmk">${landmarkSVG(k)}${esc(LANDMARKS[k].name.split(' · ')[1])}</div>`).join('');
+  $('#v-home').innerHTML = syncBanner() + `
+    <div class="card welcome">
+      <div class="big-title">Chalo, <span>hisaab</span> karein!</div>
+      <div class="muted" style="font-weight:700;margin-top:4px">Split trip kharcha with friends, from Kashmir to Kanyakumari.</div>
+      <div class="marquee"><div class="track">${strip}${strip}</div></div>
+      <div class="road-strip">${autoSVG()}</div>
+    </div>
+    <div id="homeList">${list}</div>` + `
+    <div class="card" style="margin-top:14px"><h2><span class="em">🧳</span> New trip</h2>
+      <label>Trip name<input type="text" id="ntName" maxlength="40" placeholder="e.g. Goa, Dec 2026"></label>
+      <label style="margin-top:14px">Who's going?</label>
+      <div id="nameList">${Array.from({length:4}, () => nameRow({})).join('')}</div>
+      <button type="button" class="ghost" id="addName">＋ Add another person</button>
+      <button class="primary" id="ntCreate">Create trip</button>
+    </div>`;
+  wireHomeList();
+  $('#addName').onclick = () => $('#nameList').insertAdjacentHTML('beforeend', nameRow({}));
+  $('#ntCreate').onclick = () => {
+    const name = $('#ntName').value.trim();
+    const members = [...document.querySelectorAll('#v-home .nm')].map(i => i.value.trim()).filter(Boolean)
+      .map(n => ({id: 'm' + uid(), name: n}));
+    if(!name) return toast('Give the trip a name');
+    if(members.length < 2) return toast('Add at least 2 people');
+    const id = 't' + uid();
+    currentTrip = id;
+    addEvent('trip', {tripId: id, name});
+    addEvent('members', {members});
+    rememberTrip(id);
+    goTrip(id);
+    fx.party('trip');
+  };
+}
+
+/* ---------- start ---------- */
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => b.dataset.v === 'add' ? openAdd() : show(b.dataset.v));
+$('#gearBtn').onclick = () => { if(!S.members.length) return; renderSettings(); show('settings'); };
+$('#homeBtn').onclick = () => goTrip('');
+$('#themeBtn').onclick = () => fx.toggleTheme();
+$('#bunting').innerHTML = Array.from({length:24}, (_,i) => `<span class="fl" style="left:${i*24+4}px;animation-delay:${(i%6)*.2}s"></span>`).join('');
+$('#addTab').innerHTML = autoSVG() + '<span>Add</span>';
+window.addEventListener('popstate', () => {
+  currentTrip = new URLSearchParams(location.search).get('trip') || '';
+  me = currentTrip ? readLS(LS_ME + currentTrip, '') : '';
+  view = currentTrip ? 'balances' : 'home'; render(); show(view);
+});
+$('#syncBtn').onclick = () => { if(!SYNC_URL) return toast('Sync not set up, this phone only'); toast('🔄 ' + $('#syncText').textContent); pull(); };
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') pull(); });
+window.addEventListener('online', () => { flush(); pull(); });
+if(SYNC_URL) setInterval(() => { if(document.visibilityState === 'visible' && view !== 'add') pull(); }, 30000);
+
+if(!currentTrip) view = 'home';
+render();
+show(view);
+pull();
+</script>
+</body>
+</html>
