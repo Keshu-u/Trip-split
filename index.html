@@ -445,7 +445,7 @@
    Leave it empty ('') and the app still works, but only on one phone.
    Trips and people are created inside the app, so nothing else to edit.
    ===================================================================== */
-const APP_VERSION = 'v22 · 25 Nov';
+const APP_VERSION = 'v23 · 25 Nov';
 const SYNC_URL  = 'https://script.google.com/macros/s/AKfycbxkaJoKnLN7ckwy_x6m7dkccR77Cc502pPi_1CJtg0J7D48oNbfYrkygIx8d89RiStoEg/exec';
 </script>
 
@@ -2539,7 +2539,7 @@ function zipParts(files){       // files: [{name, parts, size, crc}] -> Blob (st
 }
 function uniqueNames(list){ const seen = {}; return list.map(p => { let n = p.name || 'photo.jpg'; if(seen[n]){ const i = n.lastIndexOf('.'); n = (i > 0 ? n.slice(0, i) : n) + ' (' + (++seen[n]) + ')' + (i > 0 ? n.slice(i) : ''); } else seen[n] = 1; return n; }); }
 const canShareFiles = () => { try{ return !!(navigator.canShare && navigator.canShare({files: [new File(['x'], 'x.jpg', {type: 'image/jpeg'})]})); }catch(e){ return false; } };
-const ZIP_MAX = 350 * 1024 * 1024, SHARE_MAX = 8;
+const ZIP_MAX = 350 * 1024 * 1024, SHARE_MAX = 8, SHARE_BYTES = 120 * 1024 * 1024;
 let savingAll = false;
 async function saveAllToPhone(list, k, btn){
   if(savingAll) return;
@@ -2550,7 +2550,7 @@ async function saveAllToPhone(list, k, btn){
   // group into batches: zips up to ~350 MB, iPhone share batches of 8 files
   const batches = []; let cur = [], curBytes = 0;
   list.forEach((p, i) => {
-    if(cur.length && (share ? cur.length >= SHARE_MAX : curBytes + (p.size || 0) > ZIP_MAX)){ batches.push(cur); cur = []; curBytes = 0; }
+    if(cur.length && (share ? (cur.length >= SHARE_MAX || curBytes + (p.size || 0) > SHARE_BYTES) : curBytes + (p.size || 0) > ZIP_MAX)){ batches.push(cur); cur = []; curBytes = 0; }
     cur.push(i); curBytes += p.size || 0;
   });
   if(cur.length) batches.push(cur);
@@ -2570,9 +2570,19 @@ async function saveAllToPhone(list, k, btn){
         if(share){
           btn.textContent = `📲 Save ${files.length} to Photos${part}`;
           note.innerHTML = 'Tap the button, then choose <b>Save Images</b> (or Save Video).';
+          const shareFiles = files.map(f => new File(f.parts, f.name, {type: f.mime || 'image/jpeg'}));
           btn.onclick = async () => {
-            try{ await navigator.share({files: files.map(f => new File(f.parts, f.name, {type: f.mime}))}); }catch(e){}
-            resolve();
+            try{
+              await navigator.share({files: shareFiles});      // all files of this batch in ONE share -> "Save N Images"
+              resolve();
+            }catch(e){
+              // closed the sheet without saving (or iPhone refused): keep this batch, let them tap again
+              btn.textContent = `📲 Save ${files.length} to Photos${part}`;
+              note.className = 'note warn';
+              note.innerHTML = e && e.name === 'AbortError'
+                ? 'Not saved yet. Tap again and choose <b>Save Images</b>.'
+                : 'iPhone didn\'t open the share sheet. Tap again, or use <b>Open in Google Drive</b> below.';
+            }
           };
         } else {
           const blob = zipParts(files), url = URL.createObjectURL(blob);
