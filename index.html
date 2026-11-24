@@ -343,6 +343,31 @@
   @keyframes sway2{from{transform:rotate(-8deg) translateX(-1px)}to{transform:rotate(8deg) translateX(1px)}}
 
   .partybus .wh{transform-box:fill-box;transform-origin:center;animation:spin .55s linear infinite}
+
+  .dup{display:inline-block;font-size:10.5px;font-weight:800;color:var(--orange);border:1.5px solid currentColor;border-radius:999px;padding:0 6px;line-height:1.5;vertical-align:1px;opacity:.9}
+  .dupnote{font-size:12.5px;font-weight:700;color:var(--orange);margin-top:12px;line-height:1.45}
+  .dupnote .linkbtn{display:block;margin-top:4px;font-size:13px}
+
+  /* toggle arrow: medium triangle, thin ring, soft 3D */
+  details.card > summary .arrow{width:32px;height:32px;border-radius:50%;border:1.5px solid color-mix(in srgb,var(--ink) 22%,transparent);
+    background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--card) 60%,#fff 40%),var(--card) 70%);
+    box-shadow:0 2px 5px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;font-size:0}
+  details.card > summary .arrow svg{width:20px;height:20px;fill:var(--ink);opacity:.8}
+  [data-theme="night"] details.card > summary .arrow{border-color:rgba(255,210,63,.45);background:radial-gradient(circle at 35% 30%,#2c2160,#1b1340 70%);
+    box-shadow:0 0 8px rgba(255,210,63,.25),inset 0 1px 0 rgba(255,255,255,.08);color:inherit}
+  [data-theme="night"] details.card > summary .arrow svg{fill:var(--mari);opacity:1;filter:drop-shadow(0 0 3px rgba(255,210,63,.6))}
+  details.card > summary:active .arrow{transform:scale(.92)}
+  details.card[open] > summary .arrow{transform:rotate(180deg)}
+  /* warning pop-up */
+  .modal{position:fixed;inset:0;z-index:80;background:rgba(17,11,41,.55);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s}
+  .modal.out{opacity:0;transition:opacity .2s}
+  .modal-card{background:var(--card);border:2.5px solid var(--ol);border-radius:22px;box-shadow:var(--shadow);padding:20px;max-width:400px;width:100%;animation:popBig .35s cubic-bezier(.3,1.6,.5,1)}
+  .modal-card h2{margin:4px 0 8px;font-size:20px}
+  .modal-ico{font-size:34px;animation:wiggle 1.6s ease-in-out infinite}
+  .modal-body{font-size:14.5px;font-weight:600;color:var(--muted)}
+  .modal-body b{color:var(--ink)}
+  .danger:disabled{opacity:.45;cursor:not-allowed}
+  @keyframes fadeIn{from{opacity:0}}
 </style>
 </head>
 <body>
@@ -352,7 +377,7 @@
    Leave it empty ('') and the app still works, but only on one phone.
    Trips and people are created inside the app, so nothing else to edit.
    ===================================================================== */
-const APP_VERSION = 'v11 · 24 Nov';
+const APP_VERSION = 'v14 · 24 Nov';
 const SYNC_URL  = 'https://script.google.com/macros/s/AKfycbxkaJoKnLN7ckwy_x6m7dkccR77Cc502pPi_1CJtg0J7D48oNbfYrkygIx8d89RiStoEg/exec';
 </script>
 
@@ -381,6 +406,7 @@ const SYNC_URL  = 'https://script.google.com/macros/s/AKfycbxkaJoKnLN7ckwy_x6m7d
   <section id="v-add" class="view"></section>
   <section id="v-settings" class="view"></section>
   <section id="v-import" class="view"></section>
+  <section id="v-appsettings" class="view"></section>
 </div></main>
 
 <nav class="tabs" id="tabs"><div class="wrap">
@@ -812,6 +838,19 @@ function allTrips(){
   allEvents().forEach(ev => { if(ev.type === 'trip') m.set(ev.data.tripId, {id: ev.data.tripId, name: ev.data.name, ts: ev.ts}); });
   return m;
 }
+const DELETE_GRACE = 24*60*60*1000;
+function tripStatus(id){
+  let st = {state:'active'};
+  allEvents().forEach(ev => {
+    const d = ev.data || {};
+    if(d.tripId !== id) return;
+    if(ev.type === 'tripdel') st = {state:'archived', at: d.at || ev.ts};
+    else if(ev.type === 'triprestore') st = {state:'active'};
+  });
+  if(st.state === 'archived'){ st.left = st.at + DELETE_GRACE - Date.now(); if(st.left <= 0) st.state = 'gone'; }
+  return st;
+}
+function fmtLeft(ms){ const h = Math.floor(ms/3600000), m = Math.max(1, Math.floor(ms%3600000/60000)); return h ? `${h}h ${m}m` : `${m}m`; }
 function tripName(id){ return (allTrips().get(id) || {}).name || 'Trip'; }
 let syncState = SYNC_URL ? 'busy' : 'local';
 let lastSync = null;
@@ -821,11 +860,15 @@ function allEvents(){
   return serverEvents.concat(pending.filter(p => !ids.has(p.id)));
 }
 
+function fetchT(url, opts = {}, ms = 12000){
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
+  return fetch(url, Object.assign({}, opts, {signal: ctl.signal})).finally(() => clearTimeout(t));
+}
 async function pull(){
   if(!SYNC_URL){ render(); return; }
   setSync('busy');
   try{
-    const r = await fetch(SYNC_URL + (SYNC_URL.includes('?')?'&':'?') + 't=' + Date.now());
+    const r = await fetchT(SYNC_URL + (SYNC_URL.includes('?')?'&':'?') + 't=' + Date.now());
     const j = await r.json();
     if(!j.ok) throw new Error(j.error || 'Bad reply');
     serverEvents = j.events;
@@ -845,24 +888,25 @@ let flushing = false;
 async function flush(){
   if(!SYNC_URL || flushing) return;
   flushing = true;
-  let ev;
+  let ev, sent = 0; const wasOffline = syncState === 'err';
   while((ev = pending[0])){
     try{
-      const r = await fetch(SYNC_URL, {method:'POST', body: JSON.stringify(ev)});
+      const r = await fetchT(SYNC_URL, {method:'POST', body: JSON.stringify(ev)}, 15000);
       const j = await r.json();
       if(!j.ok) throw new Error(j.error || 'Bad reply');
       pending = pending.filter(p => p.id !== ev.id);
       if(!serverEvents.some(s => s.id === ev.id)) serverEvents.push(ev);
       writeLS(LS_PENDING, pending); writeLS(LS_CACHE, serverEvents);
-      lastSync = new Date(); setSync('ok');
+      lastSync = new Date(); setSync('ok'); sent++;
     }catch(e){ setSync('err'); break; }
   }
   flushing = false;
+  if(sent && wasOffline) toast(`✅ Back online: ${sent} saved entr${sent === 1 ? 'y' : 'ies'} synced`);
   render();
 }
 
 function addEvent(type, data){
-  if(type !== 'trip') data = Object.assign({trip: currentTrip}, data);
+  if(!['trip','tripdel','triprestore'].includes(type)) data = Object.assign({trip: currentTrip}, data);
   const ev = {id: uid(), ts: Date.now(), type, data};
   if(SYNC_URL){ pending.push(ev); writeLS(LS_PENDING, pending); render(); flush(); }
   else { serverEvents.push(ev); writeLS(LS_LOCAL, serverEvents); render(); }
@@ -951,13 +995,14 @@ function show(v){
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v && v !== 'add'));
   $('#tabs').style.display = (v === 'setup' || v === 'home') ? 'none' : '';
   $('#homeBtn').style.display = (v === 'home') ? 'none' : '';
-  $('#gearBtn').style.display = (v === 'home' || v === 'setup') ? 'none' : '';
+  $('#gearBtn').style.display = (v === 'setup' || v === 'appsettings') ? 'none' : '';
   window.scrollTo(0,0);
 }
 
 function render(){
   S = buildState();
   setSync(syncState);
+  if(!currentTrip && view === 'appsettings'){ renderAppSettings(); return; }
   if(!currentTrip){
     $('#tripName').textContent = 'My trips';
     document.title = 'Trip Split';
@@ -968,6 +1013,17 @@ function render(){
   $('#tripName').textContent = known ? tripName(currentTrip) : 'Loading…';
   document.title = $('#tripName').textContent + ' · Split';
   if(known) rememberTrip(currentTrip);
+  const tst = known ? tripStatus(currentTrip) : {state:'active'};
+  if(tst.state !== 'active'){
+    $('#v-setup').innerHTML = tst.state === 'archived'
+      ? `<div class="card"><h2>🗑 This trip was deleted</h2><div class="muted" style="font-size:14px;font-weight:600">It will be gone for good in <b>${fmtLeft(tst.left)}</b>. Changed your mind?</div>
+          <button class="primary" id="restoreHere">Restore trip</button><button class="ghost" onclick="goTrip('')">See all trips</button></div>`
+      : `<div class="card"><h2>This trip was deleted</h2><div class="muted" style="font-size:14px;font-weight:600">It was deleted more than 24 hours ago, so it can't be restored.</div>
+          <button class="ghost" onclick="goTrip('')">See all trips</button></div>`;
+    const rb = $('#restoreHere'); if(rb) rb.onclick = () => restoreTrip(currentTrip);
+    if(view !== 'setup') show('setup');
+    return;
+  }
   if(!S.members.length){
     if(!known && (loadedOnce || !SYNC_URL)){
       $('#v-setup').innerHTML = `<div class="card"><h2>Trip not found</h2><div class="muted" style="font-size:14px">This link doesn't match any trip. Check that you copied the full link.</div><button class="ghost" onclick="goTrip('')">See all trips</button></div>`;
@@ -983,10 +1039,16 @@ function render(){
 }
 
 function syncBanner(){
-  if(SYNC_URL) return '';
+  if(SYNC_URL){
+    if(syncState !== 'err') return '';
+    const n = pending.length;
+    return `<div class="banner">📴 <b>No network.</b> ${n ? `${n} entr${n === 1 ? 'y is' : 'ies are'} saved on this phone and will sync on their own when you're back online.`
+      : `You can still add expenses. They'll sync on their own when you're back online.`}</div>`;
+  }
   return `<div class="banner">Sync isn't set up yet, so data is saved only on this phone. Add your Google Sheet link (SYNC_URL) to share it with the group.</div>`;
 }
 
+const ARROW = `<span class="arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.5 9.5 Q6 8.5 7.2 8.5 H16.8 Q18 8.5 17.5 9.5 L12.9 15.6 Q12 16.7 11.1 15.6Z"/></svg></span>`;
 const OPEN_KEY = 'tripsplit_open_v1';
 const SIMPLE_KEY = 'tripsplit_simplify_v1';
 const MINE_SIMPLE_KEY = 'tripsplit_mine_simplify_v1';
@@ -1043,7 +1105,7 @@ function renderBalances(){
       </div>`).join('')
       : `<div class="muted" style="font-weight:700">You're all square with everyone. Mast! 😎</div>`;
     mineHTML = `<details class="card" id="dMine" ${openState.mine ? 'open' : ''}>
-      <summary><div style="flex:1"><h2><span class="em">💰</span> My hisaab</h2><div class="sum">${sum}</div></div><span class="arrow">▾</span></summary>
+      <summary><div style="flex:1"><h2><span class="em">💰</span> My hisaab</h2><div class="sum">${sum}</div></div>${ARROW}</summary>
       <div class="body">
         <label class="switch-row"><span><b>Simplify payments</b><br><span class="muted" style="font-size:12px">${mineSimple ? 'On: fewest payments for you' : 'Off: what you owe each person'}</span></span>
           <input type="checkbox" id="mineSimple" ${mineSimple ? 'checked' : ''}><span class="switch"></span></label>
@@ -1051,7 +1113,7 @@ function renderBalances(){
   }
   const allSum = plan.length ? `${plan.length} payment${plan.length > 1 ? 's' : ''} to clear the whole group${simplify ? ' (simplified)' : ''}` : 'Sab barabar 🎉';
   const allHTML = `<details class="card" id="dAll" ${openState.all ? 'open' : ''}>
-      <summary><div style="flex:1"><h2><span class="em">🤝</span> Settle up · everyone</h2><div class="sum">${allSum}</div></div><span class="arrow">▾</span></summary>
+      <summary><div style="flex:1"><h2><span class="em">🤝</span> Settle up · everyone</h2><div class="sum">${allSum}</div></div>${ARROW}</summary>
       <div class="body">
         <div class="seg small" id="simpSeg" style="margin-bottom:8px">
           <button type="button" data-s="0" class="${simplify ? '' : 'on'}">Who owes whom</button>
@@ -1090,11 +1152,24 @@ function renderBalances(){
   });
 }
 
+function findDuplicates(items){
+  const groups = {};
+  items.forEach(it => {
+    const d = it.data;
+    const sig = it.kind === 'expense' ? `e|${d.paidBy}|${d.amount}|${d.date}|${Object.keys(d.split || {}).sort().join(',')}` : `p|${d.from}|${d.to}|${d.amount}|${d.date}`;
+    (groups[sig] = groups[sig] || []).push(it);
+  });
+  const dup = new Set();
+  Object.values(groups).forEach(g => { if(g.length > 1 && !g.some(it => it.data.notDup)) g.forEach(it => dup.add(it.data.key)); });
+  return dup;
+}
 function renderActivity(){
   const el = $('#v-activity');
   if(!S.items.length){ el._last = ""; el.innerHTML = syncBanner() + `<div class="empty">${chaiSVG()}Chai pe charcha? No expenses yet.<br>Tap <b>Add</b> to add the first one.</div>
     <button class="ghost" id="goImport">📥 Import old expenses from Splitwise</button>`; $('#goImport').onclick = () => { renderImport(); show('import'); }; return; }
   const sorted = [...S.items].sort((a,b) => (b.data.date||'').localeCompare(a.data.date||'') || b.order - a.order);
+  const dups = findDuplicates(S.items);
+  const dupTag = k => dups.has(k) ? ' <span class="dup">⚠︎ duplicate?</span>' : '';
   let html = syncBanner(), lastDay = null, idx = 0;
   for(const it of sorted){
     const i = idx++;
@@ -1113,13 +1188,13 @@ function renderActivity(){
       html += `<button class="item" style="--i:${Math.min(i,12)}" data-key="${esc(d.key)}">
         <div class="ico" style="--c:${cat.c}">${cat.e}</div>
         <div class="mid"><div class="title">${esc(d.desc)}</div>
-          <div class="sub">${esc(nameOf(d.paidBy))} paid · split ${n===S.members.length?'with everyone':'among '+n}${it.pending?' · <span class="pending">sending…</span>':''}</div></div>
+          <div class="sub">${esc(nameOf(d.paidBy))} paid · split ${n===S.members.length?'with everyone':'among '+n}${dupTag(d.key)}${it.pending?` · <span class="pending">${syncState==='err'?'⏳ saved, will sync':'sending…'}</span>`:''}</div></div>
         <div class="amt">${money(d.amount)}${mine}</div></button>`;
     } else {
       html += `<button class="item" style="--i:${Math.min(i,12)}" data-key="${esc(d.key)}">
         <div class="ico" style="--c:#5dff9d">💸</div>
         <div class="mid"><div class="title">${esc(nameOf(d.from))} paid ${esc(nameOf(d.to))}</div>
-          <div class="sub">Repayment${it.pending?' · <span class="pending">sending…</span>':''}</div></div>
+          <div class="sub">Repayment${dupTag(d.key)}${it.pending?` · <span class="pending">${syncState==='err'?'⏳ saved, will sync':'sending…'}</span>`:''}</div></div>
         <div class="amt good">${money(d.amount)}</div></button>`;
     }
   }
@@ -1166,6 +1241,8 @@ function openAdd(opts = {}){
         <div id="eNote" class="note"></div>
       </div>
       <button class="primary" id="eSave">${isEdit?'Save changes':'Add expense'}</button>
+      ${isEdit && findDuplicates(S.items).has(e.key) ? `<div class="dupnote">⚠︎ Another expense has the same payer, amount and date. If it's the same one, delete one of them.
+        <button type="button" class="linkbtn" id="eNotDup">It's not a duplicate</button></div>` : ''}
       ${isEdit?'<button class="danger" id="eDel">Delete expense</button><button class="ghost" id="eCancel">Cancel</button>':''}`;
     buildSplit(e);
     $('#eAmt').oninput = updateNote;
@@ -1174,7 +1251,8 @@ function openAdd(opts = {}){
       splitMode = b.dataset.m; buildSplit({split: cur.split, mode: splitMode, keepChecks: cur.checked});
     });
     $('#eSave').onclick = saveExpense;
-    if(isEdit){ $('#eDel').onclick = () => del('expense'); $('#eCancel').onclick = () => show('activity'); }
+    if(isEdit){ $('#eDel').onclick = () => del('expense'); $('#eCancel').onclick = () => show('activity');
+      const nd = $('#eNotDup'); if(nd) nd.onclick = () => { addEvent('expense', Object.assign({}, editing, {notDup: true})); toast('👍 Marked as not a duplicate'); show('activity'); }; }
   } else {
     el.innerHTML = `
       ${isEdit ? '<h1 style="margin:0 0 12px">Edit repayment</h1>' : segHTML()}
@@ -1263,7 +1341,7 @@ function saveExpense(){
   if(sum !== amount) return toast('Split amounts must add up to the total');
   addEvent('expense', {
     key: editing ? editing.key : uid(), desc, amount, paidBy: $('#ePaid').value,
-    date: $('#eDate').value || today(), mode: splitMode, split
+    date: $('#eDate').value || today(), mode: splitMode, split, ...(editing && editing.notDup ? {notDup: true} : {})
   });
   fx.party(editing ? 'edit' : 'expense');
   show('activity');
@@ -1331,7 +1409,20 @@ function renderSettings(){
     <div class="card"><h2>Sync</h2><div class="muted" style="font-size:14px">${SYNC_URL
       ? 'Connected to your Google Sheet. Every expense is also saved there as a backup.'
       : 'Not connected, so data is saved on this phone only. Paste your Apps Script link into SYNC_URL in the file.'}</div></div>
-    <button class="ghost" id="setBack">Done</button>`;
+    <button class="ghost" id="setBack">Done</button>
+    <button class="danger" id="delTrip" style="margin-top:22px">🗑 Delete this trip</button>`;
+  $('#delTrip').onclick = async () => {
+    const ok = await confirmModal({
+      title: `Delete "${tripName(currentTrip)}"?`,
+      body: `This removes the trip and all its expenses <b>for everyone in the group</b>.<br><br>You'll have <b>24 hours</b> to change your mind: restore it from ⚙︎ on the home page → Recently deleted trips. After that it's gone for good.`,
+      confirmText: 'Delete trip', wait: 3
+    });
+    if(!ok) return;
+    const id = currentTrip;
+    addEvent('tripdel', {tripId: id, at: Date.now()});
+    goTrip('');
+    toast('🗑 Trip deleted. You can restore it for 24 hours');
+  };
   $('#meSel').onchange = e => { setMe(e.target.value); toast('Saved'); render(); };
   $('#tripRename').onclick = () => {
     const n = $('#tripNameIn').value.trim(); if(!n) return toast('Enter a trip name');
@@ -1503,15 +1594,61 @@ function doImport(){
   show('activity');
 }
 
+/* ---------- warning pop-up ---------- */
+function confirmModal({title, body, confirmText = 'OK', wait = 0}){
+  return new Promise(resolve => {
+    const m = document.createElement('div'); m.className = 'modal';
+    m.innerHTML = `<div class="modal-card"><div class="modal-ico">⚠️</div><h2>${esc(title)}</h2><div class="modal-body">${body}</div>
+      <button class="danger" id="mOk" ${wait ? 'disabled' : ''}>${esc(confirmText)}${wait ? ` (${wait})` : ''}</button>
+      <button class="ghost" id="mCancel">Cancel, keep it</button></div>`;
+    document.body.appendChild(m);
+    const ok = m.querySelector('#mOk'); let n = wait;
+    const t = n ? setInterval(() => { n--; if(n <= 0){ clearInterval(t); ok.disabled = false; ok.textContent = confirmText; } else ok.textContent = `${confirmText} (${n})`; }, 1000) : null;
+    const close = v => { if(t) clearInterval(t); m.classList.add('out'); setTimeout(() => m.remove(), 200); resolve(v); };
+    ok.onclick = () => close(true);
+    m.querySelector('#mCancel').onclick = () => close(false);
+    m.onclick = e => { if(e.target === m) close(false); };
+  });
+}
+function restoreTrip(id){
+  addEvent('triprestore', {tripId: id});
+  rememberTrip(id);
+  fx.sticker('Trip wapas aa gaya! ♻️', tripName(id) + ' restored');
+  goTrip(id);
+}
+function renderAppSettings(){
+  const trips = allTrips();
+  const known = readLS(LS_TRIPS, []);
+  const del = [...trips.values()].filter(t => known.includes(t.id)).map(t => ({...t, st: tripStatus(t.id)})).filter(t => t.st.state === 'archived')
+    .sort((a,b) => a.st.left - b.st.left);
+  $('#tripName').textContent = 'Settings';
+  $('#v-appsettings').innerHTML = `
+    <div class="card"><h2><span class="em">🗑</span> Recently deleted trips</h2>
+      ${del.length ? del.map(t => `<div class="row"><div style="flex:1"><b>${esc(t.name)}</b>
+          <div class="muted" style="font-size:12.5px;font-weight:700">Gone for good in ${fmtLeft(t.st.left)}</div></div>
+          <button class="btn small got" data-restore="${esc(t.id)}">Restore</button></div>`).join('')
+        : `<div class="muted" style="font-size:14px;font-weight:600">Nothing here. Deleted trips stay here for 24 hours so you can restore them.</div>`}
+    </div>
+    <div class="card"><h2>App version</h2><div style="font-weight:800;font-size:18px">${APP_VERSION}</div></div>
+    <button class="ghost" onclick="goTrip('')">Done</button>`;
+  $('#v-appsettings').querySelectorAll('[data-restore]').forEach(b => b.onclick = () => restoreTrip(b.dataset.restore));
+}
+
 /* ---------- home: list of trips + new trip ---------- */
-function wireHomeList(){ $('#v-home').querySelectorAll('[data-trip]').forEach(b => b.onclick = () => goTrip(b.dataset.trip)); }
+let homeTripsOpen = false;
+function wireHomeList(){
+  const f = $('#tripsFold'); if(f) f.addEventListener('toggle', () => { homeTripsOpen = f.open; }); $('#v-home').querySelectorAll('[data-trip]').forEach(b => b.onclick = () => goTrip(b.dataset.trip)); }
 function renderHome(){
   const trips = allTrips();
-  const mine = readLS(LS_TRIPS, []).filter(id => trips.has(id)).map(id => trips.get(id)).sort((a,b) => b.ts - a.ts);
-  const list = mine.length ? mine.map((t,i) => { const sk = sceneFor(t.id, t.name); return `<button class="item" style="--i:${i}" data-trip="${esc(t.id)}">
+  const mine = readLS(LS_TRIPS, []).filter(id => trips.has(id) && tripStatus(id).state === 'active').map(id => trips.get(id)).sort((a,b) => b.ts - a.ts);
+  let list = mine.length ? mine.map((t,i) => { const sk = sceneFor(t.id, t.name); return `<button class="item" style="--i:${i}" data-trip="${esc(t.id)}">
       <div class="thumb">${landmarkSVG(sk)}</div><div class="mid"><div class="title">${esc(t.name)}</div><div class="sub">${esc(LANDMARKS[sk].name)}</div></div><div class="muted" style="font-size:22px;font-weight:800">›</div></button>`; }).join('')
     : `<div class="empty">${(SYNC_URL && !loadedOnce) ? 'Loading…' : 'No trips yet. Create your first one below.'}</div>`;
-  if($('#homeList')){ $('#homeList').innerHTML = list; wireHomeList(); return; }
+  if(mine.length > 4) list = `<details class="card" id="tripsFold" ${homeTripsOpen ? 'open' : ''}>
+      <summary><div style="flex:1"><h2><span class="em">🧳</span> My trips (${mine.length})</h2><div class="sum">Latest: ${esc(mine[0].name)}</div></div>${ARROW}</summary>
+      <div class="body">${list}</div></details>`;
+  const hl = $('#homeList');
+  if(hl){ if(hl._last !== list){ hl._last = list; hl.innerHTML = list; wireHomeList(); } return; }
   const strip = LM_KEYS.map(k => `<div class="lmk">${landmarkSVG(k)}${esc(LANDMARKS[k].name.split(' · ')[1])}</div>`).join('');
   $('#v-home').innerHTML = syncBanner() + `
     <div class="card welcome">
@@ -1548,7 +1685,10 @@ function renderHome(){
 
 /* ---------- start ---------- */
 document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => b.dataset.v === 'add' ? openAdd() : show(b.dataset.v));
-$('#gearBtn').onclick = () => { if(!S.members.length) return; renderSettings(); show('settings'); };
+$('#gearBtn').onclick = () => {
+  if(!currentTrip){ renderAppSettings(); show('appsettings'); return; }
+  if(!S.members.length) return; renderSettings(); show('settings');
+};
 $('#homeBtn').onclick = () => goTrip('');
 $('#themeBtn').onclick = () => fx.toggleTheme();
 $('#bunting').innerHTML = Array.from({length:24}, (_,i) => `<span class="fl" style="left:${i*24+4}px;animation-delay:${(i%6)*.2}s"></span>`).join('');
@@ -1561,6 +1701,10 @@ window.addEventListener('popstate', () => {
 $('#syncBtn').onclick = () => { if(!SYNC_URL) return toast('Sync not set up, this phone only'); toast('🔄 ' + $('#syncText').textContent); pull(); };
 document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') pull(); });
 window.addEventListener('online', () => { flush(); pull(); });
+window.addEventListener('offline', () => { setSync('err'); render(); });
+if(SYNC_URL) setInterval(() => { if(pending.length && !flushing && document.visibilityState === 'visible') flush(); }, 20000);
+// keep a copy of the app on the phone so it opens with no network
+if('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 if(SYNC_URL) setInterval(() => { if(document.visibilityState === 'visible' && view !== 'add') pull(); }, 30000);
 
 if(!currentTrip) view = 'home';
