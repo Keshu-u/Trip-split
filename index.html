@@ -422,6 +422,20 @@
   .fpop b{margin-left:5px;color:var(--pink)}
   .fun{font-style:italic;color:var(--ink);opacity:.85}
   .fun.swap{animation:viewIn .45s cubic-bezier(.3,1.5,.5,1)}
+
+  .journey .roadclip{position:absolute;left:0;bottom:0;right:86px;height:96px;overflow:hidden;z-index:2;
+    -webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}
+  .journey .dest{z-index:5}
+  .journey .roadclip .road-strip.mini{width:161%}
+  .journey::after{content:"";position:absolute;left:0;right:0;bottom:6px;border-bottom:3px dashed var(--muted);opacity:.5;z-index:1}
+  .journey .roadclip .road-strip.mini::after{display:none}
+  .journey .rider{z-index:6}
+  .savedrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:2px dashed color-mix(in srgb,var(--muted) 30%,transparent);font-weight:700;font-size:14.5px}
+  .savedrow:first-of-type{border-top:none}
+  .savedrow .st{margin-left:auto;font-size:12.5px;font-weight:800}
+
+  .savedbtn{border-color:var(--good);color:var(--good);margin-top:12px}
+  [data-theme="night"] .savedbtn{box-shadow:0 0 10px rgba(93,255,157,.35)}
 </style>
 </head>
 <body>
@@ -431,7 +445,7 @@
    Leave it empty ('') and the app still works, but only on one phone.
    Trips and people are created inside the app, so nothing else to edit.
    ===================================================================== */
-const APP_VERSION = 'v18 · 25 Nov';
+const APP_VERSION = 'v20 · 25 Nov';
 const SYNC_URL  = 'https://script.google.com/macros/s/AKfycbxkaJoKnLN7ckwy_x6m7dkccR77Cc502pPi_1CJtg0J7D48oNbfYrkygIx8d89RiStoEg/exec';
 </script>
 
@@ -465,7 +479,7 @@ const SYNC_URL  = 'https://script.google.com/macros/s/AKfycbxkaJoKnLN7ckwy_x6m7d
 </div></main>
 
 <script type="text/plain" id="gsCode">/**
- * Trip Split: Google Sheet + Drive backend (v2, with Photos).
+ * Trip Split: Google Sheet + Drive backend (v3, with Photos).
  * Paste this whole file into Extensions > Apps Script of your Google Sheet,
  * replacing everything that was there. Nothing needs to be changed.
  *
@@ -492,9 +506,10 @@ function photoSheet_() {
   let sh = ss.getSheetByName(PHOTO_SHEET);
   if (!sh) {
     sh = ss.insertSheet(PHOTO_SHEET);
-    sh.appendRow(['Photo ID', 'Trip', 'File name', 'Kind', 'Type', 'Size', 'Signature', 'Copies (do not edit)', 'Uploaded by', 'When', 'Deleted']);
+    sh.appendRow(['Photo ID', 'Trip', 'File name', 'Kind', 'Type', 'Size', 'Signature', 'Copies (do not edit)', 'Uploaded by', 'When', 'Deleted', 'Faces (numbers only)', 'Fixed by hand']);
     sh.setFrozenRows(1);
   }
+  if (sh.getRange(1, 12).getValue() === '') sh.getRange(1, 12, 1, 2).setValues([['Faces (numbers only)', 'Fixed by hand']]);
   return sh;
 }
 
@@ -542,6 +557,7 @@ function doPost(e) {
         case 'setPeople':  return json_(setPeople_(body));
         case 'delPhoto':   return json_(delPhoto_(body));
         case 'setPrivacy': return json_(setPrivacy_(body));
+        case 'clearTrip':  return json_(clearTrip_(body));
         default:           return json_({ ok: false, error: 'Unknown action' });
       }
     }
@@ -682,7 +698,7 @@ function upDone_(b) {
     applyShare_(cfg, k, c);
     copies[k] = c.getId();
   });
-  photoSheet_().appendRow([b.pid, b.tripId, b.name, b.kind, b.mime, b.size, b.sig, JSON.stringify(copies), b.by || '', new Date(), '']);
+  photoSheet_().appendRow([b.pid, b.tripId, b.name, b.kind, b.mime, b.size, b.sig, JSON.stringify(copies), b.by || '', new Date(), '', JSON.stringify(b.faces || []), '']);
   return { ok: true, copies: copies };
 }
 
@@ -695,7 +711,7 @@ function rowsFor_(tripId) {
     if (String(v[i][1]) !== String(tripId)) continue;
     out.push({ row: i + 1, pid: String(v[i][0]), name: String(v[i][2]), kind: String(v[i][3]), mime: String(v[i][4]),
       size: Number(v[i][5]) || 0, sig: String(v[i][6]), copies: safeJson_(v[i][7]), by: String(v[i][8]),
-      ts: new Date(v[i][9]).getTime(), deleted: !!v[i][10] });
+      ts: new Date(v[i][9]).getTime(), deleted: !!v[i][10], faces: v[i][11] ? safeJson_(v[i][11]) : [], manual: !!v[i][12] });
   }
   return out;
 }
@@ -737,6 +753,7 @@ function setPeople_(b) {
     delete copies[k];
   });
   photoSheet_().getRange(r.row, 8).setValue(JSON.stringify(copies));
+  if (b.manual) photoSheet_().getRange(r.row, 13).setValue('yes');
   return { ok: true, copies: copies };
 }
 
@@ -761,6 +778,16 @@ function setPrivacy_(b) {
     if (r.deleted || !r.copies[b.memberId]) return;
     try { applyShare_(cfg, b.memberId, DriveApp.getFileById(r.copies[b.memberId])); } catch (err) {}
   });
+  return { ok: true };
+}
+
+// the Drive owner clears every photo of a trip (folder goes to the Drive bin for 30 days)
+function clearTrip_(b) {
+  const cfg = tripCfg_(b.tripId);
+  if (cfg) { try { DriveApp.getFolderById(cfg.root).setTrashed(true); } catch (err) {} }
+  props_().deleteProperty('T_' + b.tripId);
+  const sh = photoSheet_();
+  rowsFor_(b.tripId).forEach(function (r) { if (!r.deleted) sh.getRange(r.row, 11).setValue('cleared'); });
   return { ok: true };
 }
 </script>
@@ -1760,7 +1787,7 @@ function renderSettings(){
       ${namesForm(S.members, 'Save names')}</div>
     <div class="card"><h2>☁️ Photo storage</h2>
       <div class="muted" style="font-size:14px;font-weight:600">${photoLink() ? `Photos go to ${esc(driveOwner())} Google Drive.` : 'Not connected yet. Open the Photos tab to connect a Google Drive.'}</div>
-      ${photoLink() ? '<button class="ghost" id="psChange">Disconnect / use a different Drive</button>' : ''}</div>
+      ${photoLink() ? '<button class="ghost" id="psCode">📋 Copy latest setup code</button><button class="ghost" id="psChange">Disconnect / use a different Drive</button>' : ''}</div>
     <div class="card"><h2>📥 Already using Splitwise?</h2>
       <div class="muted" style="font-size:14px;font-weight:600">Bring all your old expenses in at once.</div>
       <button class="ghost" id="goImport2">Import from Splitwise</button></div>
@@ -1790,6 +1817,7 @@ function renderSettings(){
   };
   $('#shareBtn2').onclick = shareTrip;
   $('#goImport2').onclick = () => { renderImport(); show('import'); };
+  const pcc = $('#psCode'); if(pcc) pcc.onclick = () => copyText($('#gsCode').textContent.trim()).then(() => toast('📋 Setup code copied')).catch(() => toast('Copy failed, try again'));
   const pc = $('#psChange');
   if(pc) pc.onclick = async () => {
     const ok = await confirmModal({title: 'Disconnect this Drive?', body: 'Photos already uploaded stay in that Drive. New uploads will need a Drive to be connected again.', confirmText: 'Disconnect'});
@@ -2019,11 +2047,17 @@ function tripFaces(){
   return out;
 }
 function dist(a, b){ let s = 0; for(let i = 0; i < a.length; i++){ const x = a[i] - b[i]; s += x*x; } return Math.sqrt(s); }
-function whoIs(desc, faces){
-  let best = null, bd = 9;
-  for(const [id, list] of Object.entries(faces)) for(const f of list){ const d = dist(desc, f); if(d < bd){ bd = d; best = id; } }
-  return bd < FACE_MATCH ? best : null;
+// a face belongs to someone if it's a close match, or a near match that is clearly closer to them than to anyone else
+const FACE_NEAR = 0.60, FACE_GAP = 0.08;
+function bestFor(desc, faces){
+  const per = Object.entries(faces).map(([id, list]) => [id, Math.min(...list.map(f => dist(desc, f)))]).sort((a,b) => a[1] - b[1]);
+  if(!per.length) return null;
+  const [m1, d1] = per[0], d2 = per[1] ? per[1][1] : 9;
+  return (d1 < FACE_MATCH || (d1 < FACE_NEAR && d2 - d1 > FACE_GAP)) ? m1 : null;
 }
+function whoIs(desc, faces){ return bestFor(desc, faces); }
+function matchFaces(descs, faces){ return [...new Set((descs || []).map(d => bestFor(d, faces)).filter(Boolean))]; }
+const roundDesc = (d, n = 1000) => Array.from(d, x => Math.round(x*n)/n);
 
 /* ---------- talking to the script ---------- */
 // which Google Drive this trip's photos go to (set by someone in the trip)
@@ -2050,9 +2084,11 @@ async function loadPhotos(){
     PH.data = j;
   }catch(e){ PH.err = e.message || String(e); }
   PH.loading = false; renderPhotos();
+  if(PH.data && !PH.err) setTimeout(maybeRecheck, 300);
 }
 const thumbURL = (id, w = 360) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w${w}`;
-const dlURL = id => `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}`;
+const dlURL = id => `https://drive.usercontent.google.com/download?id=${encodeURIComponent(id)}&export=download&confirm=t`;
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const viewURL = id => `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`;
 const tripMembersPayload = () => ({tripId: currentTrip, tripName: tripName(currentTrip), members: S.members.map(m => ({id: m.id, name: m.name}))});
 
@@ -2083,11 +2119,11 @@ function renderPhotos(){
 
   const prog = PH.prog;
   const sk = sceneFor(currentTrip, tripName(currentTrip));
-  const progHTML = prog ? `<div class="card upcard" id="upCard">
+  const progHTML = prog && prog.trip === currentTrip ? `<div class="card upcard" id="upCard">
       <h2><span class="em">${prog.done ? '🏁' : '🛺'}</span> <span id="upTitle">${prog.done ? 'Pahunch gaye! Upload finished' : 'Photos on the way…'}</span></h2>
       <div class="journey">
         <div class="dest">${landmarkSVG(sk)}<span>${esc(LANDMARKS[sk].name.split(' · ')[1] || '')}</span></div>
-        <div class="road-strip mini" data-traffic></div>
+        <div class="roadclip"><div class="road-strip mini" data-traffic></div></div>
         <div class="rider" id="upAuto">${autoSVG()}<div class="cargo">📸<b id="upCargo">0</b></div></div>
       </div>
       <div class="upnums"><b id="upPct">0%</b><span id="upCount"></span></div>
@@ -2097,15 +2133,15 @@ function renderPhotos(){
       <div class="note warn" id="upErr"></div>
     </div>` : '';
 
-  if(PH.prog) setTimeout(updateUpload, 0);
+  if(PH.prog && PH.prog.trip === currentTrip) setTimeout(updateUpload, 0);
   el.innerHTML = `
     <div class="card"><h2><span class="em">🙂</span> Faces · ${haveFace}/${S.members.length}</h2>
-      <div class="muted" style="font-size:13.5px;font-weight:600">Add one clear selfie per person so photos find their way into the right folder.</div>
+      <div class="muted" style="font-size:13.5px;font-weight:600">Add 3–5 photos per person (you can pick several at once): straight, smiling, goofy, with and without glasses. More photos = fewer missed ones.</div>
       <div class="fchips">${chips}</div>
       <div class="row2" style="margin-top:6px">
         <label style="margin-top:0">Whose face?<select id="faceWho">${memberOptions(me || S.members[0].id)}</select></label>
         <label class="ghost" style="margin-top:22px;text-align:center;color:var(--ink);padding:10px">📷 Add face
-          <input type="file" id="faceFile" accept="image/*" style="display:none"></label>
+          <input type="file" id="faceFile" accept="image/*" multiple style="display:none"></label>
       </div>
       <div id="faceNote" class="note"></div>
     </div>
@@ -2113,26 +2149,60 @@ function renderPhotos(){
     <label class="primary" style="display:block;text-align:center;${PH.busy ? 'opacity:.5;pointer-events:none' : ''}">📸 Upload photos & videos
       <input type="file" id="phFiles" accept="image/*,video/*" multiple style="display:none"></label>
     <div class="note" style="text-align:center;margin:6px 0 16px">Saved in ${esc(driveOwner())} Google Drive. Photos are sorted by face; videos go to one shared folder.</div>
-    ${folders}`;
-  $('#faceFile').onchange = e => addFace($('#faceWho').value, e.target.files[0]);
+    ${folders}
+    ${PH.data && !PH.err ? savedCardHTML() : ''}`;
+  const ct = $('#clearTrip'); if(ct) ct.onclick = clearTripPhotos;
+  $('#faceFile').onchange = e => addFaces($('#faceWho').value, [...e.target.files]);
   $('#phFiles').onchange = e => uploadFiles([...e.target.files]);
   const rt = $('#phRetry'); if(rt) rt.onclick = loadPhotos;
   el.querySelectorAll('[data-folder]').forEach(b => b.onclick = () => { PH.open = b.dataset.folder; renderPhotos(); window.scrollTo(0,0); });
 }
 
-async function addFace(memberId, file){
-  if(!file) return;
+async function addFaces(memberId, files){
+  if(!files.length) return;
   const note = $('#faceNote'); note.className = 'note'; note.textContent = '🧠 Loading face AI (about 12 MB, only the first time)…';
+  let saved = 0, missed = 0;
   try{
     await loadFaceAI();
-    note.textContent = '🔍 Looking for the face…';
-    const f = await facesIn(file);
-    if(!f.length){ note.className = 'note warn'; note.textContent = "Couldn't find a face. Try a clear, well-lit selfie looking at the camera."; return; }
-    const big = f.sort((a,b) => b.area - a.area)[0];
-    addEvent('face', {memberId, desc: big.desc.map(x => Math.round(x*10000)/10000)});
-    fx.sticker('Face saved! 🙂', nameOf(memberId) + ' will be found in photos');
+    for(let i = 0; i < files.length; i++){
+      note.textContent = `🔍 Learning ${nameOf(memberId)}'s face… ${i+1} of ${files.length}`;
+      try{
+        const f = await facesIn(files[i]);
+        if(!f.length){ missed++; continue; }
+        const big = f.sort((a,b) => b.area - a.area)[0];
+        addEvent('face', {memberId, desc: roundDesc(big.desc, 10000)});
+        saved++;
+      }catch(e){ missed++; }
+    }
+    if(!saved){ note.className = 'note warn'; note.textContent = "Couldn't find a face. Try clear photos where the face is easy to see."; return; }
+    fx.sticker(`${saved} face${saved === 1 ? '' : 's'} saved! 🙂`, missed ? `${missed} had no clear face` : nameOf(memberId) + ' will be found in photos');
     renderPhotos();
+    recheckPhotos();
   }catch(e){ note.className = 'note warn'; note.textContent = '😕 ' + (e.message || e); }
+}
+
+/* ---------- re-check photos already uploaded, using the face numbers saved with each one ---------- */
+async function recheckPhotos(){
+  if(!PH.data || PH.recheck || PH.busy) return;
+  const faces = tripFaces(), moves = [];
+  for(const p of PH.data.photos){
+    if(p.kind !== 'photo' || p.manual || !p.faces || !p.faces.length) continue;
+    let keys = matchFaces(p.faces, faces); if(!keys.length) keys = ['unsorted'];
+    if(keys.slice().sort().join(',') !== Object.keys(p.copies).sort().join(',')) moves.push([p, keys]);
+  }
+  if(!moves.length) return;
+  PH.recheck = true; toast(`🔎 Re-checking photos with the new faces…`);
+  const base = tripMembersPayload(); let ok = 0;
+  for(const [p, keys] of moves){ try{ await api({action: 'setPeople', ...base, pid: p.pid, keys}, 120000); ok++; }catch(e){} }
+  PH.recheck = false;
+  if(ok) fx.sticker('Found more photos! 🔎', `${ok} photo${ok === 1 ? '' : 's'} moved to the right folders`);
+  await loadPhotos();
+}
+function maybeRecheck(){
+  const faces = tripFaces(), sig = Object.values(faces).reduce((a, l) => a + l.length, 0);
+  const k = 'tripsplit_facesig_' + currentTrip;
+  if(readLS(k, -1) === sig) return;
+  writeLS(k, sig); recheckPhotos();
 }
 
 function readChunkB64(blob){
@@ -2157,7 +2227,7 @@ function funLine(){
 function mb(b){ return b >= 1048576 ? (b/1048576).toFixed(b >= 10485760 ? 0 : 1) + ' MB' : Math.max(1, Math.round(b/1024)) + ' KB'; }
 function updateUpload(){
   const c = $('#upCard'), p = PH.prog;
-  if(!p) return;
+  if(!p || p.trip !== currentTrip) return;
   if(!c) return renderPhotos();
   const pct = p.done ? 100 : Math.min(99, Math.round(100 * p.bytesDone / Math.max(1, p.bytesTotal)));
   const a = $('#upAuto'); a.style.left = `calc((100% - 138px) * ${pct / 100})`; a.classList.toggle('arrived', !!p.done);
@@ -2191,7 +2261,9 @@ async function uploadFiles(files){
   PH.prog = {i: 0, n: todo.length, bytesDone: 0, bytesTotal: todo.reduce((a,f) => a + f.size, 0), line: skipped ? `${skipped} already uploaded, skipping them.` : 'Starting the engine…', errors: [], done: false, found: {}};
   renderPhotos();
   const faces = tripFaces();
-  const needAI = todo.some(f => !isVideo(f)) && Object.keys(faces).length;
+  const base = tripMembersPayload(), T = currentTrip;   // stays the same even if someone switches trips mid-upload
+  PH.prog.trip = T;
+  const needAI = todo.some(f => !isVideo(f));
   try{ if(needAI){ PH.prog.line = '🧠 Loading face AI…'; updateUpload(); await loadFaceAI(); } }
   catch(e){ PH.prog.errors.push('face AI'); }
   let found = 0;
@@ -2199,10 +2271,10 @@ async function uploadFiles(files){
     PH.prog.i++;
     try{
       const video = isVideo(f);
-      let keys = [];
+      let keys = [], faceDescs = [];
       if(!video && needAI && window.faceapi){
         PH.prog.line = `🔍 Finding faces in ${f.name}…`; updateUpload();
-        try{ const fs = await facesIn(f); keys = [...new Set(fs.map(x => whoIs(x.desc, faces)).filter(Boolean))]; }catch(e){}
+        try{ const fs = await facesIn(f); faceDescs = fs.map(x => roundDesc(x.desc)); keys = matchFaces(faceDescs, faces); }catch(e){}
       }
       if(video) keys = ['videos'];
       else if(!keys.length) keys = ['unsorted'];
@@ -2210,7 +2282,7 @@ async function uploadFiles(files){
       const names = keys.filter(k => k !== 'videos' && k !== 'unsorted').map(nameOf);
       PH.prog.line = `⬆️ ${f.name}${names.length ? ' → ' + names.join(', ') : video ? ' → Videos' : ' → No face found'}`; keys.forEach(k => { if(k !== 'videos' && k !== 'unsorted') PH.prog.found[k] = (PH.prog.found[k] || 0) + 1; }); updateUpload();
       const pid = 'p' + uid(), mime = f.type || 'application/octet-stream';
-      const st = await api({action: 'upStart', ...tripMembersPayload(), name: f.name, mime, size: f.size, firstKey: keys[0]});
+      const st = await api({action: 'upStart', ...base, name: f.name, mime, size: f.size, firstKey: keys[0]});
       let fileId = null, start = 0;
       while(start < f.size){
         const part = f.slice(start, Math.min(f.size, start + CHUNK));
@@ -2224,7 +2296,7 @@ async function uploadFiles(files){
         if(r.done){ fileId = r.fileId; break; }
       }
       if(!fileId) throw new Error('Upload did not finish');
-      await api({action: 'upDone', ...tripMembersPayload(), pid, fileId, firstKey: keys[0], keys, name: f.name, kind: video ? 'video' : 'photo', mime, size: f.size, sig: fileSig(f), by: me || ''});
+      await api({action: 'upDone', ...base, pid, fileId, firstKey: keys[0], keys, name: f.name, kind: video ? 'video' : 'photo', mime, size: f.size, sig: fileSig(f), by: me || '', faces: faceDescs});
       done.add(fileSig(f));
     }catch(e){ PH.prog.errors.push(f.name); PH.prog.bytesDone += 0; }
   }
@@ -2237,7 +2309,54 @@ async function uploadFiles(files){
   PH.busy = false;
   updateUpload();
   if(okN > 0){ if(isNight()) fx.fireworks(3); else fx.petals(40); }
-  await loadPhotos();
+  if(currentTrip === T) await loadPhotos(); else PH.data = null;
+}
+
+
+/* ---------- who has saved their photos (so the Drive owner knows when it's safe to clear) ---------- */
+function savedState(){
+  const saved = {}, opened = {}; let cleared = null;
+  allEvents().forEach(ev => {
+    const d = ev.data || {};
+    if(d.trip !== currentTrip) return;
+    if(ev.type === 'saved') saved[d.memberId] = d.at || ev.ts;
+    else if(ev.type === 'unsaved') delete saved[d.memberId];
+    else if(ev.type === 'dlopen') opened[d.memberId] = true;
+    else if(ev.type === 'photoscleared'){ cleared = d.at || ev.ts; Object.keys(saved).forEach(k => delete saved[k]); }
+  });
+  return {saved, opened, cleared};
+}
+const isDriveOwner = () => !!(myDrive() && photoLink() && myDrive().url === photoLink());
+function savedCardHTML(){
+  const d = PH.data; if(!d) return '';
+  const st = savedState();
+  if(!d.photos.length) return st.cleared ? `<div class="banner">🧹 This trip's photos were cleared from the Drive on ${esc(fmtDay(new Date(st.cleared).toLocaleDateString('en-CA')))}.</div>` : '';
+  const withPhotos = S.members.filter(m => d.photos.some(p => p.copies[m.id]));
+  const pending = withPhotos.filter(m => !st.saved[m.id]);
+  const rows = withPhotos.map(m => `<div class="savedrow">${avatar(m.id)}${esc(m.name)}
+      <span class="st ${st.saved[m.id] ? 'good' : 'muted'}">${st.saved[m.id] ? '✅ Saved ' + esc(fmtDay(new Date(st.saved[m.id]).toLocaleDateString('en-CA'))) : st.opened[m.id] ? '👀 Opened, not confirmed' : '⏳ Not yet'}</span></div>`).join('');
+  const owner = isDriveOwner();
+  return `<div class="card" style="margin-top:16px"><h2><span class="em">📥</span> Who has saved their photos</h2>
+      <div class="muted" style="font-size:13px;font-weight:600;margin-bottom:4px">Everyone opens their folder, downloads, then taps "✅ I've saved my photos". Grab what you want from Videos and No face found too.</div>
+      ${rows}
+      ${pending.length ? `<a class="ghost" style="display:block;text-align:center;text-decoration:none;color:var(--ink)" target="_blank" rel="noopener"
+          href="https://wa.me/?text=${encodeURIComponent(`📸 ${pending.map(m => m.name).join(', ')}: please save your ${tripName(currentTrip)} photos from Trip Split, then tap "✅ I've saved my photos" in your folder. Clearing the Drive soon 🙏 ${tripLink(currentTrip)}`)}">📩 Remind on WhatsApp</a>`
+        : `<div class="note good" style="font-weight:800;margin-top:6px">🎉 Everyone has saved their photos.${owner ? ' Safe to clear your Drive.' : ''}</div>`}
+      ${owner ? `<button class="${pending.length ? 'danger' : 'primary'}" id="clearTrip">🧹 ${pending.length ? `Clear anyway (${pending.length} not saved yet)` : "Clear this trip's photos from my Drive"}</button>` : ''}
+    </div>`;
+}
+async function clearTripPhotos(){
+  const st = savedState(), d = PH.data;
+  const pending = S.members.filter(m => d.photos.some(p => p.copies[m.id]) && !st.saved[m.id]);
+  const ok = await confirmModal({
+    title: `Clear all ${d.photos.length} photos & videos?`,
+    body: `${pending.length ? `<b>${esc(pending.map(m => m.name).join(', '))} haven't confirmed yet.</b><br><br>` : ''}Everything in this trip's folder leaves the app and goes to the bin of your Google Drive, where it can be restored for 30 days. After that it's gone and the space is freed.`,
+    confirmText: 'Clear photos', wait: 5});
+  if(!ok) return;
+  toast('🧹 Clearing…');
+  try{ await api({action: 'clearTrip', tripId: currentTrip}, 120000); addEvent('photoscleared', {at: Date.now()}); toast('🧹 Cleared. Empty your Drive bin to free the space now.'); }
+  catch(e){ toast('😕 ' + e.message); }
+  PH.open = null; await loadPhotos();
 }
 
 /* ---------- one folder ---------- */
@@ -2314,8 +2433,16 @@ function renderPhotoFolder(){
   el.innerHTML = `
     <button class="ghost" id="phBack" style="margin:0 0 12px">‹ All folders</button>
     <div class="card"><h2>${k !== 'videos' && k !== 'unsorted' ? avatar(k) : ''}${esc(title)} · ${list.length}</h2>
-      ${hidden ? '' : `<a class="ghost" style="display:block;text-align:center;text-decoration:none;color:var(--ink)" href="${esc(d.folders[k] || '#')}" target="_blank" rel="noopener">⬇️ Download all (opens Google Drive)</a>
-      <div class="note">In Drive, tap ⋮ next to the folder name, then Download. Or tap a photo below to download just that one.</div>`}
+      ${hidden || !list.length ? '' : isIOS() ? `
+        <a class="primary" id="dlAll" style="display:block;text-align:center;text-decoration:none" href="${esc(d.folders[k] || '#')}" target="_blank" rel="noopener">⬇️ Open in Google Drive</a>
+        <div class="note"><b>iPhone:</b> in Drive, long-press a photo → tap select-all ⬚ → ⋮ → <b>Send a copy → Save images</b>. They go straight into Photos.</div>
+        <button class="linkbtn" id="saveAll" style="margin-top:6px">Or try saving here, one by one</button>` : `
+        <button class="primary" id="saveAll">⬇️ Save all ${list.length} to phone</button>
+        <div class="note">If your phone asks <b>"Allow multiple downloads?"</b>, tap Allow. Full quality, straight to your phone.</div>
+        <a class="linkbtn" id="dlAll" style="display:inline-block;margin-top:6px" href="${esc(d.folders[k] || '#')}" target="_blank" rel="noopener">Or open in Google Drive</a>`}
+      ${mine && list.length ? (savedState().saved[k]
+          ? `<div class="note good" style="font-weight:800;margin-top:10px">✅ You confirmed you saved your photos. <button class="linkbtn" id="unsave">Undo</button></div>`
+          : `<button class="ghost savedbtn" id="iSaved">✅ I've saved my photos</button>`) : ''}
       ${mine ? `<label class="switch-row" style="margin-top:12px"><span><b>🔒 Private folder</b><br><span class="muted" style="font-size:12px">${isPrivate ? 'On: only you can open it' : 'Off: the whole group can see it'}</span></span>
           <input type="checkbox" id="privSw" ${isPrivate ? 'checked' : ''}><span class="switch"></span></label>
         <div id="privMail" style="display:${isPrivate ? 'block' : 'none'}"><label>Your Gmail (so you can still open it in Drive)<input type="text" id="privEmail" inputmode="email" placeholder="you@gmail.com"></label>
@@ -2326,6 +2453,11 @@ function renderPhotoFolder(){
   el.querySelectorAll('[data-pid]').forEach(b => b.onclick = () => openViewer(b.dataset.pid, k));
   const sw = $('#privSw');
   if(sw) sw.onchange = () => savePrivacy(sw.checked, ($('#privEmail') || {}).value || '');
+  const markOpened = () => { if(mine && !savedState().opened[k]) addEvent('dlopen', {memberId: k}); };
+  const da = $('#dlAll'); if(da) da.addEventListener('click', markOpened);
+  const sa = $('#saveAll'); if(sa) sa.onclick = () => { markOpened(); saveAllToPhone(list, k, sa); };
+  const is = $('#iSaved'); if(is) is.onclick = () => { addEvent('saved', {memberId: k, at: Date.now()}); fx.sticker('Photos saved ✅', 'The group can see you are done'); renderPhotoFolder(); };
+  const us = $('#unsave'); if(us) us.onclick = () => { addEvent('unsaved', {memberId: k}); renderPhotoFolder(); };
   const ps = $('#privSave'); if(ps) ps.onclick = () => savePrivacy(true, $('#privEmail').value.trim());
 }
 async function savePrivacy(priv, email){
@@ -2333,6 +2465,26 @@ async function savePrivacy(priv, email){
   try{ await api({action: 'setPrivacy', ...tripMembersPayload(), memberId: me, private: priv, email}, 120000); PH.data.privacy[me] = priv; toast(priv ? '🔒 Private: only you can open it' : '🔓 The group can see your folder'); }
   catch(e){ toast('😕 ' + e.message); }
   renderPhotoFolder();
+}
+
+
+/* ---------- save a whole folder to the phone, one file after another ---------- */
+let savingAll = false;
+async function saveAllToPhone(list, k, btn){
+  if(savingAll) return;
+  savingAll = true;
+  const label = btn.textContent;
+  for(let i = 0; i < list.length; i++){
+    btn.textContent = `⬇️ Saving ${i+1} of ${list.length}…`;
+    const a = document.createElement('a');
+    a.href = dlURL(list[i].copies[k]); a.rel = 'noopener'; a.style.display = 'none';
+    document.body.appendChild(a); a.click(); a.remove();
+    await new Promise(r => setTimeout(r, list[i].kind === 'video' ? 2500 : 1300));
+  }
+  btn.textContent = `✅ Sent ${list.length} to your phone`;
+  savingAll = false;
+  toast(`✅ ${list.length} downloads started. Check your Downloads or Gallery.`);
+  setTimeout(() => { if(btn.isConnected) btn.textContent = label; }, 6000);
 }
 
 /* ---------- photo viewer ---------- */
@@ -2363,8 +2515,22 @@ function openViewer(pid, k){
       <button class="btn small" id="vWhoSave" style="margin-top:8px">Save</button></div>`;
     m.querySelector('#vWhoSave').onclick = async () => {
       const keys = [...m.querySelectorAll('[data-who]:checked')].map(c => c.dataset.who);
+      // learn: one person added and exactly one face in the photo that nobody owns yet -> that face is theirs
+      let learned = '';
+      const added = keys.filter(k => !people.includes(k));
+      if(added.length === 1 && p.faces && p.faces.length){
+        const faces = tripFaces();
+        const free = p.faces.filter(d => { const w = bestFor(d, faces); return !w || !keys.includes(w); });
+        if(free.length === 1){ addEvent('face', {memberId: added[0], desc: free[0]}); learned = added[0]; }
+      }
       toast('Moving photo…');
-      try{ await api({action: 'setPeople', ...tripMembersPayload(), pid, keys}, 120000); close(); toast('👍 Folders updated'); await loadPhotos(); }
+      try{
+        await api({action: 'setPeople', ...tripMembersPayload(), pid, keys, manual: true}, 120000);
+        close();
+        if(learned) fx.sticker(`Learned ${nameOf(learned)}'s face 🧠`, 'Similar photos will be found automatically');
+        else toast('👍 Folders updated');
+        await loadPhotos();
+      }
       catch(e){ toast('😕 ' + e.message); }
     };
   };
