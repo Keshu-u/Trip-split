@@ -445,7 +445,7 @@
    Leave it empty ('') and the app still works, but only on one phone.
    Trips and people are created inside the app, so nothing else to edit.
    ===================================================================== */
-const APP_VERSION = 'v20 · 25 Nov';
+const APP_VERSION = 'v22 · 25 Nov';
 const SYNC_URL  = 'https://script.google.com/macros/s/AKfycbxkaJoKnLN7ckwy_x6m7dkccR77Cc502pPi_1CJtg0J7D48oNbfYrkygIx8d89RiStoEg/exec';
 </script>
 
@@ -479,7 +479,7 @@ const SYNC_URL  = 'https://script.google.com/macros/s/AKfycbxkaJoKnLN7ckwy_x6m7d
 </div></main>
 
 <script type="text/plain" id="gsCode">/**
- * Trip Split: Google Sheet + Drive backend (v3, with Photos).
+ * Trip Split: Google Sheet + Drive backend (v4, with Photos).
  * Paste this whole file into Extensions > Apps Script of your Google Sheet,
  * replacing everything that was there. Nothing needs to be changed.
  *
@@ -545,6 +545,10 @@ function doPost(e) {
   // Upload chunks go straight to Drive and don't need the lock
   if (body && body.action === 'upChunk') {
     try { return json_(upChunk_(body)); } catch (err) { return json_({ ok: false, error: String(err) }); }
+  }
+  // Reading a piece of a trip photo (for "Save all to phone") also skips the lock
+  if (body && body.action === 'getChunk') {
+    try { return json_(getChunk_(body)); } catch (err) { return json_({ ok: false, error: String(err) }); }
   }
 
   const lock = LockService.getScriptLock();
@@ -789,6 +793,25 @@ function clearTrip_(b) {
   const sh = photoSheet_();
   rowsFor_(b.tripId).forEach(function (r) { if (!r.deleted) sh.getRange(r.row, 11).setValue('cleared'); });
   return { ok: true };
+}
+
+// read one piece of a photo/video, ONLY if it belongs to this trip (never any other Drive file)
+function getChunk_(b) {
+  const belongs = rowsFor_(b.tripId).some(function (r) {
+    return !r.deleted && Object.keys(r.copies).some(function (k) { return r.copies[k] === b.fileId; });
+  });
+  if (!belongs) return { ok: false, error: 'Not a photo of this trip' };
+  const end = b.start + b.len - 1;
+  const res = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(b.fileId) + '?alt=media', {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken(), Range: 'bytes=' + b.start + '-' + end },
+    muteHttpExceptions: true
+  });
+  const code = res.getResponseCode();
+  if (code !== 200 && code !== 206) return { ok: false, error: 'Drive said ' + code };
+  const h = res.getHeaders();
+  const cr = h['Content-Range'] || h['content-range'] || '';
+  const bytes = res.getContent();
+  return { ok: true, data: Utilities.base64Encode(bytes), total: cr ? Number(cr.split('/')[1]) : bytes.length };
 }
 </script>
 <nav class="tabs" id="tabs"><div class="wrap">
@@ -2433,13 +2456,13 @@ function renderPhotoFolder(){
   el.innerHTML = `
     <button class="ghost" id="phBack" style="margin:0 0 12px">‹ All folders</button>
     <div class="card"><h2>${k !== 'videos' && k !== 'unsorted' ? avatar(k) : ''}${esc(title)} · ${list.length}</h2>
-      ${hidden || !list.length ? '' : isIOS() ? `
-        <a class="primary" id="dlAll" style="display:block;text-align:center;text-decoration:none" href="${esc(d.folders[k] || '#')}" target="_blank" rel="noopener">⬇️ Open in Google Drive</a>
-        <div class="note"><b>iPhone:</b> in Drive, long-press a photo → tap select-all ⬚ → ⋮ → <b>Send a copy → Save images</b>. They go straight into Photos.</div>
-        <button class="linkbtn" id="saveAll" style="margin-top:6px">Or try saving here, one by one</button>` : `
-        <button class="primary" id="saveAll">⬇️ Save all ${list.length} to phone</button>
-        <div class="note">If your phone asks <b>"Allow multiple downloads?"</b>, tap Allow. Full quality, straight to your phone.</div>
-        <a class="linkbtn" id="dlAll" style="display:inline-block;margin-top:6px" href="${esc(d.folders[k] || '#')}" target="_blank" rel="noopener">Or open in Google Drive</a>`}
+      ${hidden || !list.length ? '' : isIOS() && canShareFiles() ? `
+        <button class="primary" id="saveAll">📲 Save all ${list.length} to Photos</button>
+        <div class="note">Full quality, straight into your Photos app.</div>
+        <a class="linkbtn" id="dlAll" style="display:inline-block;margin-top:6px" href="${esc(d.folders[k] || '#')}" target="_blank" rel="noopener">Or open in Google Drive</a>` : `
+        <a class="primary" id="dlAll" style="display:block;text-align:center;text-decoration:none" href="${esc(d.folders[k] || '#')}" target="_blank" rel="noopener">⬇️ Download all ${list.length} (Google Drive)</a>
+        <div class="steps note" style="color:var(--ink)">In Drive: <b>1.</b> long-press one photo · <b>2.</b> tap select-all ⬚ at the top · <b>3.</b> ⋮ → <b>Download</b>. They show up in your Gallery, full quality.</div>
+        <button class="linkbtn" id="saveAll" style="margin-top:6px">Or download everything as one ZIP file</button>`}
       ${mine && list.length ? (savedState().saved[k]
           ? `<div class="note good" style="font-weight:800;margin-top:10px">✅ You confirmed you saved your photos. <button class="linkbtn" id="unsave">Undo</button></div>`
           : `<button class="ghost savedbtn" id="iSaved">✅ I've saved my photos</button>`) : ''}
@@ -2455,7 +2478,7 @@ function renderPhotoFolder(){
   if(sw) sw.onchange = () => savePrivacy(sw.checked, ($('#privEmail') || {}).value || '');
   const markOpened = () => { if(mine && !savedState().opened[k]) addEvent('dlopen', {memberId: k}); };
   const da = $('#dlAll'); if(da) da.addEventListener('click', markOpened);
-  const sa = $('#saveAll'); if(sa) sa.onclick = () => { markOpened(); saveAllToPhone(list, k, sa); };
+  const sa = $('#saveAll'); if(sa) sa.onclick = () => { markOpened(); sa.onclick = null; saveAllToPhone(list, k, sa); };
   const is = $('#iSaved'); if(is) is.onclick = () => { addEvent('saved', {memberId: k, at: Date.now()}); fx.sticker('Photos saved ✅', 'The group can see you are done'); renderPhotoFolder(); };
   const us = $('#unsave'); if(us) us.onclick = () => { addEvent('unsaved', {memberId: k}); renderPhotoFolder(); };
   const ps = $('#privSave'); if(ps) ps.onclick = () => savePrivacy(true, $('#privEmail').value.trim());
@@ -2468,23 +2491,107 @@ async function savePrivacy(priv, email){
 }
 
 
-/* ---------- save a whole folder to the phone, one file after another ---------- */
+/* ---------- save a whole folder to the phone ----------
+   Android/computer: pack everything into ONE zip (one tap = one download, nothing to block).
+   iPhone: share sheet -> "Save Images", straight into Photos. */
+const RCHUNK = 3 * 1024 * 1024;
+const CRC_T = (() => { const t = new Uint32Array(256); for(let n = 0; n < 256; n++){ let c = n; for(let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crcUpdate(crc, buf){ for(let i = 0; i < buf.length; i++) crc = CRC_T[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8); return crc; }
+function b64ToBytes(s){ const bin = atob(s); const u = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+async function fetchDriveFile(fileId, onBytes){
+  const parts = []; let start = 0, total = Infinity, crc = 0xFFFFFFFF;
+  while(start < total){
+    let r, tries = 0;
+    while(true){
+      try{ r = await api({action: 'getChunk', tripId: currentTrip, fileId, start, len: RCHUNK}, 120000); break; }
+      catch(e){
+        if(/Unknown action/.test(e.message)) throw new Error('Update the Google script first: ⚙︎ → Photo storage → Copy latest setup code.');
+        if(++tries >= 3) throw e; await new Promise(z => setTimeout(z, 1500 * tries));
+      }
+    }
+    total = r.total; const u = b64ToBytes(r.data);
+    if(!u.length) break;
+    parts.push(u); crc = crcUpdate(crc, u); start += u.length; onBytes && onBytes(u.length);
+  }
+  return {parts, size: start, crc: (crc ^ 0xFFFFFFFF) >>> 0};
+}
+function zipParts(files){       // files: [{name, parts, size, crc}] -> Blob (stored, no compression; photos are already compressed)
+  const enc = new TextEncoder(), out = [], central = []; let offset = 0;
+  const d = new Date(), dosTime = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1),
+        dosDate = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  for(const f of files){
+    const name = enc.encode(f.name), lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true); lh.setUint32(14, f.crc, true);
+    lh.setUint32(18, f.size, true); lh.setUint32(22, f.size, true); lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    out.push(lh.buffer, name, ...f.parts);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
+    ch.setUint16(12, dosTime, true); ch.setUint16(14, dosDate, true); ch.setUint32(16, f.crc, true); ch.setUint32(20, f.size, true); ch.setUint32(24, f.size, true);
+    ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+    central.push(ch.buffer, name);
+    offset += 30 + name.length + f.size;
+  }
+  const cdSize = central.reduce((a, b) => a + (b.byteLength || b.length), 0), eo = new DataView(new ArrayBuffer(22));
+  eo.setUint32(0, 0x06054b50, true); eo.setUint16(8, files.length, true); eo.setUint16(10, files.length, true);
+  eo.setUint32(12, cdSize, true); eo.setUint32(16, offset, true);
+  return new Blob([...out, ...central, eo.buffer], {type: 'application/zip'});
+}
+function uniqueNames(list){ const seen = {}; return list.map(p => { let n = p.name || 'photo.jpg'; if(seen[n]){ const i = n.lastIndexOf('.'); n = (i > 0 ? n.slice(0, i) : n) + ' (' + (++seen[n]) + ')' + (i > 0 ? n.slice(i) : ''); } else seen[n] = 1; return n; }); }
+const canShareFiles = () => { try{ return !!(navigator.canShare && navigator.canShare({files: [new File(['x'], 'x.jpg', {type: 'image/jpeg'})]})); }catch(e){ return false; } };
+const ZIP_MAX = 350 * 1024 * 1024, SHARE_MAX = 8;
 let savingAll = false;
 async function saveAllToPhone(list, k, btn){
   if(savingAll) return;
   savingAll = true;
-  const label = btn.textContent;
-  for(let i = 0; i < list.length; i++){
-    btn.textContent = `⬇️ Saving ${i+1} of ${list.length}…`;
-    const a = document.createElement('a');
-    a.href = dlURL(list[i].copies[k]); a.rel = 'noopener'; a.style.display = 'none';
-    document.body.appendChild(a); a.click(); a.remove();
-    await new Promise(r => setTimeout(r, list[i].kind === 'video' ? 2500 : 1300));
+  const box = btn.parentElement, note = document.createElement('div'); note.className = 'note'; btn.after(note);
+  const names = uniqueNames(list), totalBytes = list.reduce((a, p) => a + (p.size || 0), 0) || 1;
+  const share = isIOS() && canShareFiles();
+  // group into batches: zips up to ~350 MB, iPhone share batches of 8 files
+  const batches = []; let cur = [], curBytes = 0;
+  list.forEach((p, i) => {
+    if(cur.length && (share ? cur.length >= SHARE_MAX : curBytes + (p.size || 0) > ZIP_MAX)){ batches.push(cur); cur = []; curBytes = 0; }
+    cur.push(i); curBytes += p.size || 0;
+  });
+  if(cur.length) batches.push(cur);
+  let got = 0;
+  try{
+    for(let b = 0; b < batches.length; b++){
+      const files = [];
+      for(const i of batches[b]){
+        btn.disabled = true;
+        btn.textContent = `📦 Packing ${i+1} of ${list.length}… ${Math.round(100 * got / totalBytes)}%`;
+        const f = await fetchDriveFile(list[i].copies[k], n => { got += n; btn.textContent = `📦 Packing ${i+1} of ${list.length}… ${Math.min(99, Math.round(100 * got / totalBytes))}%`; });
+        files.push({name: names[i], mime: list[i].mime || 'image/jpeg', ...f});
+      }
+      const part = batches.length > 1 ? ` (${b+1} of ${batches.length})` : '';
+      btn.disabled = false;
+      await new Promise(resolve => {     // a real tap is needed to start the save
+        if(share){
+          btn.textContent = `📲 Save ${files.length} to Photos${part}`;
+          note.innerHTML = 'Tap the button, then choose <b>Save Images</b> (or Save Video).';
+          btn.onclick = async () => {
+            try{ await navigator.share({files: files.map(f => new File(f.parts, f.name, {type: f.mime}))}); }catch(e){}
+            resolve();
+          };
+        } else {
+          const blob = zipParts(files), url = URL.createObjectURL(blob);
+          const zipName = `${tripName(currentTrip)} - ${k === 'videos' ? 'Videos' : k === 'unsorted' ? 'No face found' : nameOf(k)}${part}.zip`.replace(/[\\/:*?"<>|]/g, '');
+          btn.textContent = `📦 Download ZIP${part} · ${mb(blob.size)}`;
+          note.innerHTML = 'Ready! Tap the button to download.';
+          btn.onclick = () => { const a = document.createElement('a'); a.href = url; a.download = zipName; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000); resolve(); };
+        }
+      });
+    }
+    btn.textContent = share ? '✅ Saved to Photos' : '✅ ZIP downloaded';
+    note.innerHTML = share ? 'Check your Photos app.' : 'Open it in your <b>Files</b> app and tap <b>Extract</b>. The photos then show up in your Gallery.';
+    fx.sticker('Photos saved! 📲', share ? 'Check your Photos app' : 'Open the ZIP in Files → Extract');
+  }catch(e){
+    btn.disabled = false; btn.textContent = '⬇️ Try again';
+    note.className = 'note warn'; note.textContent = '😕 ' + (e.message || e);
   }
-  btn.textContent = `✅ Sent ${list.length} to your phone`;
+  btn.onclick = () => { note.remove(); btn.onclick = null; saveAllToPhone(list, k, btn); };
   savingAll = false;
-  toast(`✅ ${list.length} downloads started. Check your Downloads or Gallery.`);
-  setTimeout(() => { if(btn.isConnected) btn.textContent = label; }, 6000);
 }
 
 /* ---------- photo viewer ---------- */
