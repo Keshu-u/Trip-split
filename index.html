@@ -295,6 +295,47 @@
   [data-theme="night"] .btn.got{background:transparent;color:var(--good);border-color:var(--good);box-shadow:0 0 12px rgba(93,255,157,.45);text-shadow:0 0 6px var(--good)}
   [data-theme="night"] .settle-row .amtline,[data-theme="night"] .mine-row .amtline.bad{color:#ff8aa5;text-shadow:0 0 8px rgba(255,79,123,.7)}
   [data-theme="night"] .mine-row .amtline.good{text-shadow:0 0 8px rgba(93,255,157,.7)}
+
+  /* sliding on/off switch */
+  .switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 6px;padding:10px 12px;border-radius:14px;background:var(--card2);border:2px dashed color-mix(in srgb,var(--muted) 40%,transparent);color:var(--ink);font-size:14px;cursor:pointer}
+  .switch-row input{display:none}
+  .switch{position:relative;flex-shrink:0;width:52px;height:30px;border-radius:999px;background:#cfc6d6;border:2.5px solid var(--ol);transition:background .3s}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:21px;height:21px;border-radius:50%;background:#fff;border:2px solid var(--ol);
+    transition:transform .35s cubic-bezier(.3,1.6,.5,1)}
+  .switch-row input:checked + .switch{background:var(--green)}
+  .switch-row input:checked + .switch::after{transform:translateX(21px)}
+  [data-theme="night"] .switch{background:#2a2060}
+  [data-theme="night"] .switch-row input:checked + .switch{background:transparent;border-color:var(--good);box-shadow:0 0 12px rgba(93,255,157,.6)}
+  [data-theme="night"] .switch-row input:checked + .switch::after{background:var(--good);border-color:var(--good);box-shadow:0 0 10px var(--good)}
+
+  /* party bus */
+  .road-strip{overflow-x:clip;overflow-y:visible}
+  .road-strip .veh.bus .wh{animation-duration:.7s}
+  .partybus{display:block;overflow:visible}
+  .partybus .ballwrap{animation:ballFloat 1.6s ease-in-out infinite}
+  .partybus .ball{transform-box:fill-box;transform-origin:center;animation:ballSpin 1.2s linear infinite}
+  .partybus .rays{animation:rays .5s steps(1) infinite;opacity:.55;mix-blend-mode:screen}
+  .partybus .facet{animation:facet .45s steps(1) infinite}
+  .partybus .facet.f2{animation-delay:.15s} .partybus .facet.f3{animation-delay:.3s}
+  .partybus .dancer{animation:dance .45s ease-in-out infinite alternate}
+  .partybus .arms{animation:arms .3s ease-in-out infinite alternate}
+  @keyframes ballFloat{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-4px) rotate(4deg)}}
+  @keyframes ballSpin{0%{filter:hue-rotate(0)}100%{filter:hue-rotate(360deg)}}
+  @keyframes rays{0%{transform:skewX(-12deg);filter:hue-rotate(0)}33%{transform:skewX(10deg);filter:hue-rotate(120deg)}66%{transform:skewX(0);filter:hue-rotate(240deg)}}
+  @keyframes facet{0%{fill:#ff4fae}25%{fill:#2ef2d6}50%{fill:#ffd23f}75%{fill:#7dff6b}}
+  @keyframes dance{from{transform:translateY(0) rotate(-6deg)}to{transform:translateY(-3px) rotate(6deg)}}
+  @keyframes arms{from{transform:translateY(0)}to{transform:translateY(-2px)}}
+  [data-theme="night"] .partybus{filter:drop-shadow(0 0 6px #a83cff) drop-shadow(0 0 14px #ff4fae)}
+  [data-theme="night"] .partybus .rays{opacity:.8}
+  /* road lines dance to the disco colours while the bus is on the road */
+  .road-strip.party::after{border-bottom-style:dashed;opacity:1;animation:roadDisco .5s steps(1) infinite;border-bottom-width:4px}
+  @keyframes roadDisco{0%{border-color:#ff4fae}25%{border-color:#2ef2d6}50%{border-color:#ffd23f}75%{border-color:#7dff6b}}
+  [data-theme="night"] .road-strip.party::after{filter:drop-shadow(0 0 6px #ff4fae)}
+
+  .partybus .diva{animation:sway2 .6s ease-in-out infinite alternate}
+  @keyframes sway2{from{transform:rotate(-8deg) translateX(-1px)}to{transform:rotate(8deg) translateX(1px)}}
+
+  .partybus .wh{transform-box:fill-box;transform-origin:center;animation:spin .55s linear infinite}
 </style>
 </head>
 <body>
@@ -304,6 +345,7 @@
    Leave it empty ('') and the app still works, but only on one phone.
    Trips and people are created inside the app, so nothing else to edit.
    ===================================================================== */
+const APP_VERSION = 'v10 · 24 Nov';
 const SYNC_URL  = 'https://script.google.com/macros/s/AKfycbxkaJoKnLN7ckwy_x6m7dkccR77Cc502pPi_1CJtg0J7D48oNbfYrkygIx8d89RiStoEg/exec';
 </script>
 
@@ -580,13 +622,15 @@ const fx = {
 /* ---- road traffic: autos, cars, bikes and a cyclist at random gaps ---- */
 function carSVG(color){
   return `<svg class="auto veh-svg" viewBox="0 0 100 50" aria-hidden="true">
-    <polygon class="beam" points="72,28 100,14 100,42" fill="url(#beamG)"/>
+    <polygon class="beam" points="80,29 100,16 100,42" fill="url(#beamG)"/>
     <g class="al" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
-      <path d="M4 38 V29 Q4 24 10 23 L22 22 L32 12 Q35 10 40 10 H56 Q61 10 64 14 L71 22 Q77 23 77 29 V38Z" fill="${color}"/>
-      <path d="M27 22 L35 14 H46 V22Z" fill="#bdeaff"/><path d="M50 14 H58 Q60 14 62 16 L66 22 H50Z" fill="#bdeaff"/>
-      <circle cx="74" cy="29" r="2.5" fill="#fff6b0"/>
+      <path d="M4 38 V27 Q4 22 9 21 L15 20 L25 10 Q27 8 31 8 H47 Q51 8 54 11 L63 20 L75 22 Q80 23 80 28 V38Z" fill="${color}"/>
+      <path d="M18 20 L27 12 H37 V20Z" fill="#bdeaff"/><path d="M41 12 H48 Q50 12 52 14 L58 20 H41Z" fill="#bdeaff"/>
+      <path d="M39 22 V34" fill="none"/>
+      <rect x="2" y="25" width="4" height="5" rx="1" fill="#e0344f" stroke="none"/>
+      <circle cx="78" cy="28" r="2.6" fill="#fff6b0"/>
       <g class="wh"><circle cx="20" cy="39" r="6" fill="#2a1238"/><circle cx="22" cy="37" r="1.6" fill="#fff" stroke="none"/></g>
-      <g class="wh"><circle cx="61" cy="39" r="6" fill="#2a1238"/><circle cx="63" cy="37" r="1.6" fill="#fff" stroke="none"/></g>
+      <g class="wh"><circle cx="64" cy="39" r="6" fill="#2a1238"/><circle cx="66" cy="37" r="1.6" fill="#fff" stroke="none"/></g>
     </g></svg>`;
 }
 function bikeSVG(color){
@@ -636,11 +680,85 @@ function spawnVehicle(strip, v){
   d.addEventListener('animationend', e => { if(e.target === d) d.remove(); });
   strip.appendChild(d);
 }
+
+const PARTY_PLACES = ['Ibiza','Goa','Bangkok','Las Vegas','Miami','Berlin','Amsterdam','Barcelona','Mykonos','Bali','Rio','Dubai',
+  'Tokyo','Seoul','Paris','London','New York','Phuket','Tulum','Cancun','Prague','Budapest','Lisbon','Mumbai','Singapore','Hong Kong',
+  'Cape Town','Sydney','Ayia Napa','Kasol','Bangalore','Delhi','Thailand','Italy','Spain','Greece','Croatia','Brazil','Mexico',
+  'Vietnam','Koh Phangan','Rome','Milan','Istanbul','Los Angeles','Montreal','Buenos Aires','Belgrade','Kyiv','Tbilisi'];
+const BUS_COLORS = ['#a83cff','#ff3d7f','#00b3a1','#ff7a1a'];
+let placeDeck = [], lastBusColor = null;
+function nextPlace(){
+  if(!placeDeck.length){ placeDeck = PARTY_PLACES.slice(); for(let i = placeDeck.length-1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [placeDeck[i], placeDeck[j]] = [placeDeck[j], placeDeck[i]]; } }
+  return placeDeck.pop();
+}
+function nextBusColor(){ const c = BUS_COLORS.filter(x => x !== lastBusColor); lastBusColor = c[Math.floor(Math.random()*c.length)]; return lastBusColor; }
+function partyBusSVG(){
+  const dancer = (x, c, d) => `<g class="dancer" style="animation-delay:${d}s;transform-origin:${x}px 44px">
+      <path class="arms" d="M${x-9} 17 L${x} 27 L${x+9} 17" fill="none" stroke="#2a1238" stroke-width="3"/>
+      <path d="M${x-5} 26 Q${x} 24 ${x+5} 26 L${x+4} 37 H${x-4}Z" fill="${c}"/>
+      <path d="M${x-3} 37 L${x-5} 44 M${x+3} 37 L${x+5} 44" fill="none"/>
+      <circle cx="${x}" cy="20" r="5" fill="#ffcf9e"/><path d="M${x-5} 19 Q${x} 12 ${x+5} 19" fill="#2a1238"/></g>`;
+  const diva = (x, d) => `<g class="dancer diva" style="animation-delay:${d}s;transform-origin:${x}px 44px">
+      <path d="M${x-5} 22 Q${x-8} 32 ${x-6} 34 M${x+5} 22 Q${x+8} 32 ${x+6} 34" fill="none" stroke="#2a1238" stroke-width="3"/>
+      <path class="arms" d="M${x-4} 26 L${x-10} 15 M${x+4} 26 L${x+9} 19 L${x+12} 13" fill="none"/>
+      <path d="M${x-4} 25 Q${x} 23 ${x+4} 25 Q${x+6} 28 ${x+3} 31 Q${x+8} 37 ${x+5} 42 L${x+1} 40 L${x-6} 42 Q${x-8} 37 ${x-3} 31 Q${x-6} 28 ${x-4} 25Z" fill="#e0193a"/>
+      <path d="M${x-3} 42 L${x-4} 45 L${x-6} 45 M${x+3} 42 L${x+4} 45 L${x+6} 45" fill="none" stroke="#e0193a" stroke-width="2.4"/>
+      <circle cx="${x}" cy="19" r="4.6" fill="#ffcf9e"/>
+      <path d="M${x-5} 20 Q${x-6} 12 ${x} 13 Q${x+6} 12 ${x+5} 20 Q${x+7} 27 ${x+6} 30" fill="#2a1238"/>
+      <circle cx="${x+1.5}" cy="20.5" r=".9" fill="#e0193a" stroke="none"/></g>`;
+  const busColor = nextBusColor(), place = nextPlace();
+  // 4 random spots on the roof (kept apart, away from the disco ball), lady in red at a random one
+  const slots = [26,40,54,96,110,124].sort(() => Math.random() - .5).slice(0, 4).sort((a,b) => a-b);
+  const divaAt = Math.floor(Math.random()*4);
+  const shirts = ['#2ef2d6','#ffd23f','#7dff6b','#ff9a3d','#5fd8ff','#ff4fae'].sort(() => Math.random() - .5);
+  const crowd = slots.map((x, i) => i === divaAt ? diva(x, Math.random()*.3) : dancer(x, shirts[i], Math.random()*.3)).join('');
+  return `<svg class="partybus" viewBox="0 0 150 112" aria-hidden="true">
+    <defs>
+      <radialGradient id="ballG" cx=".35" cy=".35"><stop offset="0" stop-color="#fff"/><stop offset=".5" stop-color="#c9d6ff"/><stop offset="1" stop-color="#6b6fa8"/></radialGradient>
+    </defs>
+    <g class="ballwrap">
+      <g class="rays"><path d="M75 10 L35 44 L45 44Z" fill="#ff4fae"/><path d="M75 10 L70 44 L80 44Z" fill="#2ef2d6"/><path d="M75 10 L105 44 L115 44Z" fill="#ffd23f"/></g>
+      
+      <g class="ball"><circle cx="75" cy="10" r="10" fill="url(#ballG)" stroke="#2a1238" stroke-width="1.5"/>
+        <path d="M65 10 H85 M75 0 V20 M67 4 Q75 8 83 4 M67 16 Q75 12 83 16" stroke="#2a1238" stroke-width=".8" fill="none" opacity=".6"/>
+        <rect class="facet f1" x="70" y="7" width="3" height="3" fill="#ff4fae"/><rect class="facet f2" x="77" y="12" width="3" height="3" fill="#2ef2d6"/><rect class="facet f3" x="72" y="13" width="3" height="3" fill="#ffd23f"/></g>
+    </g>
+    <g class="al" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+      ${crowd}
+      <path d="M14 44 H138" stroke="#ff4fae" stroke-width="3"/>
+      <path d="M8 100 V48 Q8 44 13 44 H134 Q142 44 142 52 V100Z" fill="${busColor}"/>
+      <path d="M8 72 H142" fill="none"/>
+      <path d="M8 66 H142" stroke="#ffd23f" stroke-width="3"/>
+      ${[16,36,56,76,96].map(x => `<rect x="${x}" y="50" width="16" height="12" rx="2" fill="#bdeaff"/>`).join('')}
+      ${[16,36,56,76].map(x => `<rect x="${x}" y="76" width="16" height="12" rx="2" fill="#bdeaff"/>`).join('')}
+      <path d="M118 50 H136 Q138 50 138 54 V62 H118Z" fill="#bdeaff"/>
+      <rect x="118" y="76" width="14" height="22" rx="2" fill="#ffcf3f"/>
+      <text x="62" y="97" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" stroke="none" font-family="Baloo 2, sans-serif"
+        ${place.length > 9 ? 'textLength="78" lengthAdjust="spacingAndGlyphs"' : ''}>🎉 ${esc(place.toUpperCase())}</text>
+      <circle cx="140" cy="92" r="2.6" fill="#fff6b0"/>
+      <g class="wh"><circle cx="32" cy="101" r="8" fill="#2a1238"/><circle cx="35" cy="98" r="2" fill="#fff" stroke="none"/></g>
+      <g class="wh"><circle cx="118" cy="101" r="8" fill="#2a1238"/><circle cx="121" cy="98" r="2" fill="#fff" stroke="none"/></g>
+    </g></svg>`;
+}
+function spawnPartyBus(strip){
+  if(strip.querySelector('.veh.bus')) return;
+  const d = document.createElement('div');
+  d.className = 'veh bus';
+  d.innerHTML = partyBusSVG();
+  d.style.width = '124px'; d.style.bottom = '4px'; d.style.zIndex = 3;
+  d.style.animationDuration = (9 + Math.random()*2) + 's';
+  strip.classList.add('party');
+  d.addEventListener('animationend', e => { if(e.target === d){ d.remove(); strip.classList.remove('party'); } });
+  strip.appendChild(d);
+}
 function trafficTick(){
   if(document.visibilityState !== 'visible' || fx.reduced()) return;
   const now = Date.now();
   document.querySelectorAll('.road-strip[data-traffic]').forEach(strip => {
     if(!strip._next){ spawnVehicle(strip, VEHICLES[0]); strip._next = now + 1500 + Math.random()*2500; return; }
+    // rare party bus: roughly once every 15-35 seconds, at random
+    if(!strip._bus) strip._bus = now + 8000 + Math.random()*12000;
+    if(now >= strip._bus){ spawnPartyBus(strip); strip._bus = now + 15000 + Math.random()*20000; }
     if(now < strip._next) return;
     spawnVehicle(strip);
     // sometimes two come together, otherwise a random gap
@@ -769,16 +887,26 @@ function buildState(){
   const ensure = id => { if(!(id in net)){ net[id]=0; paid[id]=0; share[id]=0; } };
   members.forEach(m => ensure(m.id));
   let total = 0;
+  // person-to-person debts, like Splitwise with "simplify debts" off
+  const gross = {};
+  const owe = (a, b, v) => { if(a === b || !v) return; gross[a+'>'+b] = (gross[a+'>'+b] || 0) + v; };
   for(const it of items.values()){
     const d = it.data;
     if(it.kind === 'expense'){
       ensure(d.paidBy); net[d.paidBy] += d.amount; paid[d.paidBy] += d.amount; total += d.amount;
-      for(const [id, s] of Object.entries(d.split || {})){ ensure(id); net[id] -= s; share[id] += s; }
+      for(const [id, s] of Object.entries(d.split || {})){ ensure(id); net[id] -= s; share[id] += s; owe(id, d.paidBy, s); }
     } else {
       ensure(d.from); ensure(d.to); net[d.from] += d.amount; net[d.to] -= d.amount;
+      owe(d.to, d.from, d.amount);   // paying someone back cancels what you owe them
     }
   }
-  return {members, items: [...items.values()], net, paid, share, total};
+  const ids = Object.keys(net), pairs = [];
+  for(let i = 0; i < ids.length; i++) for(let j = i+1; j < ids.length; j++){
+    const a = ids[i], b = ids[j], x = (gross[a+'>'+b] || 0) - (gross[b+'>'+a] || 0);
+    if(x > 0) pairs.push({from: a, to: b, amount: x}); else if(x < 0) pairs.push({from: b, to: a, amount: -x});
+  }
+  pairs.sort((p, q) => q.amount - p.amount);
+  return {members, items: [...items.values()], net, paid, share, total, pairs};
 }
 
 /* Fewest payments needed to clear all debts */
@@ -853,6 +981,8 @@ function syncBanner(){
 }
 
 const OPEN_KEY = 'tripsplit_open_v1';
+const SIMPLE_KEY = 'tripsplit_simplify_v1';
+const MINE_SIMPLE_KEY = 'tripsplit_mine_simplify_v1';
 let openState = readLS(OPEN_KEY, {mine:true, all:false});
 function setOpen(k, v){ openState[k] = v; writeLS(OPEN_KEY, openState); }
 function renderBalances(){
@@ -874,7 +1004,8 @@ function renderBalances(){
       <svg class="hdeco moon" viewBox="0 0 40 40"><path d="M26 4 A16 16 0 1 0 36 28 A13 13 0 1 1 26 4Z" fill="#ffe9a8"/></svg>  <svg class="hdeco kite" viewBox="0 0 60 80"><path d="M30 2 L54 30 L30 58 L6 30Z" fill="#ff3d7f" stroke="#2a1238" stroke-width="2.5" stroke-linejoin="round"/>    <path d="M30 2 V58 M6 30 H54" stroke="#2a1238" stroke-width="2"/><path d="M30 2 L54 30 L30 30Z" fill="#ffb703"/>    <path d="M30 58 Q24 66 32 70 Q40 74 30 80" fill="none" stroke="#2a1238" stroke-width="2"/><path d="M26 64 l6 3 -6 3z" fill="#00b3a1"/></svg>  <svg class="hdeco lantern" viewBox="0 0 40 56"><path d="M8 10 H32 L36 40 Q20 50 4 40Z" fill="#ff9a3d"/><path d="M8 10 H32 L34 24 H6Z" fill="#ffd23f"/>    <rect x="12" y="4" width="16" height="6" rx="2" fill="#e0344f"/><path d="M14 46 V54 M20 48 V56 M26 46 V54" stroke="#ffd23f" stroke-width="2"/></svg>
     </div>`;
   }
-  const plan = settlePlan(S.net);
+  const simplify = readLS(SIMPLE_KEY, false);
+  const plan = simplify ? settlePlan(S.net) : S.pairs;
   const settle = plan.length ? plan.map(p => `
     <div class="row settle-row">
       <div class="who">${avatar(p.from)}<b>${esc(nameOf(p.from))}</b> <span class="muted">→</span> ${avatar(p.to)}<b>${esc(nameOf(p.to))}</b>
@@ -886,7 +1017,8 @@ function renderBalances(){
   // ---- "My hisaab": only payments that involve me ----
   let mineHTML = '';
   if(me){
-    const mine = plan.filter(p => p.from === me || p.to === me);
+    const mineSimple = readLS(MINE_SIMPLE_KEY, false);
+    const mine = (mineSimple ? settlePlan(S.net) : S.pairs).filter(p => p.from === me || p.to === me);
     const iPay = mine.filter(p => p.from === me).reduce((a,p) => a + p.amount, 0);
     const iGet = mine.filter(p => p.to === me).reduce((a,p) => a + p.amount, 0);
     const sum = !mine.length ? 'All clear, nothing to pay or get ✨'
@@ -905,12 +1037,19 @@ function renderBalances(){
       : `<div class="muted" style="font-weight:700">You're all square with everyone. Mast! 😎</div>`;
     mineHTML = `<details class="card" id="dMine" ${openState.mine ? 'open' : ''}>
       <summary><div style="flex:1"><h2><span class="em">💰</span> My hisaab</h2><div class="sum">${sum}</div></div><span class="arrow">▾</span></summary>
-      <div class="body">${rowsMine}</div></details>`;
+      <div class="body">
+        <label class="switch-row"><span><b>Simplify payments</b><br><span class="muted" style="font-size:12px">${mineSimple ? 'On: fewest payments for you' : 'Off: what you owe each person'}</span></span>
+          <input type="checkbox" id="mineSimple" ${mineSimple ? 'checked' : ''}><span class="switch"></span></label>
+        ${rowsMine}</div></details>`;
   }
-  const allSum = plan.length ? `${plan.length} payment${plan.length > 1 ? 's' : ''} to clear the whole group` : 'Sab barabar 🎉';
+  const allSum = plan.length ? `${plan.length} payment${plan.length > 1 ? 's' : ''} to clear the whole group${simplify ? ' (simplified)' : ''}` : 'Sab barabar 🎉';
   const allHTML = `<details class="card" id="dAll" ${openState.all ? 'open' : ''}>
       <summary><div style="flex:1"><h2><span class="em">🤝</span> Settle up · everyone</h2><div class="sum">${allSum}</div></div><span class="arrow">▾</span></summary>
-      <div class="body">${settle}</div></details>`;
+      <div class="body">
+        <div class="seg small" id="simpSeg" style="margin-bottom:8px">
+          <button type="button" data-s="0" class="${simplify ? '' : 'on'}">Who owes whom</button>
+          <button type="button" data-s="1" class="${simplify ? 'on' : ''}">Fewest payments</button></div>
+        ${settle}</div></details>`;
 
   const ids = Object.keys(S.net);
   const rows = ids.map(id => {
@@ -934,6 +1073,9 @@ function renderBalances(){
   $('#shareBtn').onclick = shareTrip;
   const dm = $('#dMine'), da = $('#dAll');
   if(dm) dm.addEventListener('toggle', () => setOpen('mine', dm.open));
+  const ms = $('#mineSimple');
+  if(ms) ms.onchange = () => { writeLS(MINE_SIMPLE_KEY, ms.checked); renderBalances(); };
+  el.querySelectorAll('#simpSeg button').forEach(b => b.onclick = () => { writeLS(SIMPLE_KEY, b.dataset.s === '1'); renderBalances(); });
   if(da) da.addEventListener('toggle', () => setOpen('all', da.open));
   el.querySelectorAll('[data-settle]').forEach(b => b.onclick = () => {
     const [from, to, amt] = b.dataset.settle.split('|');
@@ -1177,6 +1319,8 @@ function renderSettings(){
     <div class="card"><h2>📥 Already using Splitwise?</h2>
       <div class="muted" style="font-size:14px;font-weight:600">Bring all your old expenses in at once.</div>
       <button class="ghost" id="goImport2">Import from Splitwise</button></div>
+    <div class="card"><h2>App version</h2><div style="font-weight:800;font-size:18px">${APP_VERSION}</div>
+      <div class="muted" style="font-size:13px;font-weight:600">If this looks old after an update, close the tab and reopen the link.</div></div>
     <div class="card"><h2>Sync</h2><div class="muted" style="font-size:14px">${SYNC_URL
       ? 'Connected to your Google Sheet. Every expense is also saved there as a backup.'
       : 'Not connected, so data is saved on this phone only. Paste your Apps Script link into SYNC_URL in the file.'}</div></div>
@@ -1239,12 +1383,13 @@ function parseSplitwise(text){
 }
 
 /* turn one Splitwise row into our expense/payment entries (balances always match Splitwise) */
-function swToEntries(item, map){
+function swToEntries(item, map, nth = 0){
   const nets = {};
   for(const [n, v] of Object.entries(item.nets)){ const id = map[n]; if(id) nets[id] = (nets[id] || 0) + v; }
   const pos = Object.entries(nets).filter(([,v]) => v > 0), neg = Object.entries(nets).filter(([,v]) => v < 0);
   if(!pos.length || !neg.length) return [];
-  const key = 'sw_' + hashStr(item.date + '|' + item.desc + '|' + item.cost + '|' + JSON.stringify(item.nets));
+  // identical rows in one file are separate expenses: number them (same file imported twice still won't duplicate)
+  const key = 'sw_' + hashStr(item.date + '|' + item.desc + '|' + item.cost + '|' + JSON.stringify(item.nets)) + (nth ? '_' + nth : '');
   const isPay = /^payment$/i.test(item.cat) || (/\bpaid\b/i.test(item.desc) && !item.cat && pos.length === 1 && neg.length === 1);
   if(isPay && pos.length === 1 && neg.length === 1)
     return [['payment', {key, from: pos[0][0], to: neg[0][0], amount: pos[0][1], date: item.date}]];
@@ -1260,13 +1405,15 @@ function swToEntries(item, map){
     }
   }
   // several people paid: one entry per payer, shared in proportion (balances stay exact)
-  const totalNeg = neg.reduce((a,[,v]) => a - v, 0);
+  // match payers to owers paisa-exact (no rounding drift)
+  const owe = neg.map(([id, v]) => [id, -v]); let j = 0;
   return pos.map(([payer, pv], k) => {
-    const split = {}; let given = 0;
-    neg.forEach(([id, v], j) => {
-      const s = j === neg.length - 1 ? pv - given : Math.round(pv * (-v) / totalNeg);
-      if(s > 0) split[id] = s; given += s;
-    });
+    const split = {}; let need = pv;
+    while(need > 0 && j < owe.length){
+      const take = Math.min(need, owe[j][1]);
+      split[owe[j][0]] = (split[owe[j][0]] || 0) + take; need -= take; owe[j][1] -= take;
+      if(owe[j][1] === 0) j++;
+    }
     return ['expense', {key: key + '_' + k, desc: item.desc + (pos.length > 1 ? ` (${nameOf(payer)}'s part)` : ''), amount: pv, paidBy: payer, date: item.date, mode: 'exact', split}];
   });
 }
@@ -1337,9 +1484,14 @@ function doImport(){
   if(newPeople.length){ addEvent('members', {members: S.members.concat(newPeople)}); S = buildState(); }
   let n = 0;
   // oldest first, so Activity reads in order
-  [...d.items].sort((x,y) => x.date.localeCompare(y.date)).forEach(item => swToEntries(item, map).forEach(([type, data]) => { addEvent(type, data); n++; }));
+  const seen = {}, have = new Set(S.items.map(it => it.data.key));
+  [...d.items].sort((x,y) => x.date.localeCompare(y.date)).forEach(item => {
+    const sig = item.date + '|' + item.desc + '|' + item.cost + '|' + JSON.stringify(item.nets);
+    const nth = seen[sig] = (seen[sig] ?? -1) + 1;
+    swToEntries(item, map, nth).forEach(([type, data]) => { if(!have.has(data.key)) n++; addEvent(type, data); });
+  });
   importData = null;
-  fx.sticker('Import ho gaya! 📥', `${n} entries added`);
+  fx.sticker(n ? 'Import ho gaya! 📥' : 'Already imported ✅', n ? `${n} new entr${n === 1 ? 'y' : 'ies'} added` : 'Nothing new in this file');
   if(isNight()) fx.fireworks(4); else fx.petals(50);
   show('activity');
 }
