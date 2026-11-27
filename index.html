@@ -265,6 +265,9 @@
 
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+    .journey .veh{animation-duration:var(--dur,7s)!important}
+    .journey .veh .wh,.journey .rider .wh{animation-duration:.5s!important;animation-iteration-count:infinite!important}
+    .journey .rider{transition-duration:.8s!important}
   }
 
   .auto .al{stroke:#2a1238;transition:stroke .5s} [data-theme="night"] .auto .al{stroke:#ffd23f}
@@ -445,7 +448,7 @@
    Leave it empty ('') and the app still works, but only on one phone.
    Trips and people are created inside the app, so nothing else to edit.
    ===================================================================== */
-const APP_VERSION = 'v23 · 25 Nov';
+const APP_VERSION = 'v24 · 27 Nov';
 const SYNC_URL  = 'https://script.google.com/macros/s/AKfycbxkaJoKnLN7ckwy_x6m7dkccR77Cc502pPi_1CJtg0J7D48oNbfYrkygIx8d89RiStoEg/exec';
 </script>
 
@@ -830,6 +833,8 @@ const LS_PENDING = 'tripsplit_pending_v1'; // unsent entries (no signal)
 const LS_CACHE = 'tripsplit_cache_v1';     // last copy downloaded from the sheet
 const LS_ME = 'tripsplit_me_v1_';          // + trip id
 const LS_TRIPS = 'tripsplit_mytrips_v1';   // trips opened on this phone
+const LS_DEVICE = 'tripsplit_device_v1';
+const deviceId = (() => { let d = readLS(LS_DEVICE, ''); if(!d){ d = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); writeLS(LS_DEVICE, d); } return d; })();
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -1115,7 +1120,7 @@ function spawnVehicle(strip, v){
   d.style.width = v.size + 'px';
   d.style.bottom = (Math.random() < .5 ? 4 : 12) + 'px';
   d.style.zIndex = d.style.bottom === '4px' ? 2 : 1;
-  d.style.animationDuration = (v.dur[0] + Math.random()*(v.dur[1]-v.dur[0])) + 's';
+  d.style.animationDuration = (v.dur[0] + Math.random()*(v.dur[1]-v.dur[0])) + 's'; d.style.setProperty('--dur', d.style.animationDuration);
   d.addEventListener('animationend', e => { if(e.target === d) d.remove(); });
   strip.appendChild(d);
 }
@@ -1185,15 +1190,16 @@ function spawnPartyBus(strip){
   d.className = 'veh bus';
   d.innerHTML = partyBusSVG();
   d.style.width = '124px'; d.style.bottom = '4px'; d.style.zIndex = 3;
-  d.style.animationDuration = (9 + Math.random()*2) + 's';
+  d.style.animationDuration = (9 + Math.random()*2) + 's'; d.style.setProperty('--dur', d.style.animationDuration);
   strip.classList.add('party');
   d.addEventListener('animationend', e => { if(e.target === d){ d.remove(); strip.classList.remove('party'); } });
   strip.appendChild(d);
 }
 function trafficTick(){
-  if(document.visibilityState !== 'visible' || fx.reduced()) return;
+  if(document.visibilityState !== 'visible') return;
   const now = Date.now();
   document.querySelectorAll('.road-strip[data-traffic]').forEach(strip => {
+    if(fx.reduced() && !strip.closest('.journey')) return;      // Reduce Motion: keep only the upload-screen road
     if(!strip._next){ spawnVehicle(strip, VEHICLES[0]); strip._next = now + 1500 + Math.random()*2500; return; }
     // rare party bus: roughly once every 15-35 seconds, at random
     if(!strip._bus) strip._bus = now + 8000 + Math.random()*12000;
@@ -1242,7 +1248,7 @@ async function shareTrip(){
 }
 function allTrips(){
   const m = new Map();
-  allEvents().forEach(ev => { if(ev.type === 'trip') m.set(ev.data.tripId, {id: ev.data.tripId, name: ev.data.name, ts: ev.ts}); });
+  allEvents().forEach(ev => { if(ev.type === 'trip'){ const o = m.get(ev.data.tripId); m.set(ev.data.tripId, {id: ev.data.tripId, name: ev.data.name, ts: o ? o.ts : ev.ts, owner: (o && o.owner) || ev.data.owner || ''}); } });
   return m;
 }
 const DELETE_GRACE = 24*60*60*1000;
@@ -1258,6 +1264,14 @@ function tripStatus(id){
   return st;
 }
 function fmtLeft(ms){ const h = Math.floor(ms/3600000), m = Math.max(1, Math.floor(ms%3600000/60000)); return h ? `${h}h ${m}m` : `${m}m`; }
+// admin = the phone that created the trip. Older trips (made before this existed): the phone whose Drive stores the photos, else anyone
+function isTripAdmin(id = currentTrip){
+  const t = allTrips().get(id) || {};
+  if(t.owner) return t.owner === deviceId;
+  const st = tripPhotoStore && tripPhotoStore();
+  if(st && st.url) return !!(myDrive() && myDrive().url === st.url);
+  return true;
+}
 function tripName(id){ return (allTrips().get(id) || {}).name || 'Trip'; }
 let syncState = SYNC_URL ? 'busy' : 'local';
 let lastSync = null;
@@ -1820,8 +1834,16 @@ function renderSettings(){
       ? 'Connected to your Google Sheet. Every expense is also saved there as a backup.'
       : 'Not connected, so data is saved on this phone only. Paste your Apps Script link into SYNC_URL in the file.'}</div></div>
     <button class="ghost" id="setBack">Done</button>
-    <button class="danger" id="delTrip" style="margin-top:22px">🗑 Delete this trip</button>`;
-  $('#delTrip').onclick = async () => {
+    ${isTripAdmin() ? '<button class="danger" id="delTrip" style="margin-top:22px">🗑 Delete this trip</button><div class="note" style="text-align:center">You created this trip, so only you can delete it.</div>'
+      : '<button class="danger" id="leaveTrip" style="margin-top:22px">🚪 Leave this trip</button><div class="note" style="text-align:center">Removes it from your phone. Your expenses stay, and you can rejoin with the trip link.</div>'}`;
+  const lt = $('#leaveTrip');
+  if(lt) lt.onclick = async () => {
+    const ok = await confirmModal({title: `Leave "${tripName(currentTrip)}"?`, body: 'The trip disappears from your phone. Nothing is deleted for the group, and you can rejoin any time with the trip link.', confirmText: 'Leave trip'});
+    if(!ok) return;
+    writeLS(LS_TRIPS, readLS(LS_TRIPS, []).filter(x => x !== currentTrip));
+    goTrip(''); toast('🚪 You left the trip');
+  };
+  const dt = $('#delTrip'); if(dt) dt.onclick = async () => {
     const ok = await confirmModal({
       title: `Delete "${tripName(currentTrip)}"?`,
       body: `This removes the trip and all its expenses <b>for everyone in the group</b>.<br><br>You'll have <b>24 hours</b> to change your mind: restore it from ⚙︎ on the home page → Recently deleted trips. After that it's gone for good.`,
@@ -2090,8 +2112,8 @@ function tripPhotoStore(){
   return st;
 }
 const photoLink = () => (tripPhotoStore() || {}).url || '';
-async function api(body, ms = 60000){
-  const r = await fetchT(photoLink(), {method: 'POST', body: JSON.stringify(body)}, ms);
+async function api(body, ms = 60000, link = photoLink()){
+  const r = await fetchT(link, {method: 'POST', body: JSON.stringify(body)}, ms);
   let j; try{ j = await r.json(); }catch(e){ throw new Error('The Google script needs the new version (see setup steps).'); }
   if(!j.ok) throw new Error(j.error || 'Something went wrong');
   return j;
@@ -2154,6 +2176,7 @@ function renderPhotos(){
       <div class="found" id="upFound"></div>
       <div class="note fun" id="upFun"></div>
       <div class="note warn" id="upErr"></div>
+      <div class="note" id="upTip">📱 Keep the app open. If you switch to another app, the auto waits and carries on when you come back.</div>
     </div>` : '';
 
   if(PH.prog && PH.prog.trip === currentTrip) setTimeout(updateUpload, 0);
@@ -2254,16 +2277,19 @@ function updateUpload(){
   if(!c) return renderPhotos();
   const pct = p.done ? 100 : Math.min(99, Math.round(100 * p.bytesDone / Math.max(1, p.bytesTotal)));
   const a = $('#upAuto'); a.style.left = `calc((100% - 138px) * ${pct / 100})`; a.classList.toggle('arrived', !!p.done);
-  $('#upCargo').textContent = p.done ? '✓' : Math.max(1, p.n - p.i + 1);
+  $('#upCargo').textContent = p.done ? '✓' : Math.max(1, p.n - p.i);
   $('#upPct').textContent = pct + '%';
-  $('#upCount').textContent = p.n ? `${Math.min(p.i, p.n)} of ${p.n} files · ${mb(p.bytesDone)} of ${mb(p.bytesTotal)}` : '';
+  $('#upCount').textContent = p.n ? `${Math.min(p.i, p.n)} of ${p.n} done · ${mb(p.bytesDone)} of ${mb(p.bytesTotal)}` : '';
   $('#upLine').textContent = p.line;
-  $('#upTitle').textContent = p.done ? 'Pahunch gaye! Upload finished' : 'Photos on the way…';
+  $('#upTitle').textContent = p.done ? 'Pahunch gaye! Upload finished' : p.paused ? (navigator.onLine ? 'Paused, continuing…' : 'Waiting for network… ⏸') : 'Photos on the way…';
   $('#upFound').innerHTML = Object.entries(p.found || {}).filter(([,n]) => n).map(([id, n]) =>
     `<span class="fpop">${avatar(id)}${esc(nameOf(id))} <b>${n}</b></span>`).join('');
-  $('#upErr').textContent = p.errors.length ? `${p.errors.length} file(s) failed: ${p.errors.slice(0,3).join(', ')}. Select them again to retry.` : '';
+  const reasons = [...new Set(p.errors.map(x => x.why))];
+  $('#upErr').innerHTML = p.errors.length ? `${p.errors.length} file(s) didn't upload (${esc(reasons.join(', '))}).${p.done && PH.failedFiles && PH.failedFiles.length ? ' <button class="btn small" id="upRetry">🔁 Retry them</button>' : ''}` : '';
+  const rb = $('#upRetry'); if(rb) rb.onclick = () => uploadFiles(PH.failedFiles.slice());
   const fun = $('#upFun');
-  if(p.done){ fun.textContent = 'Keep the app open to see the folders update. You can delete these from your phone now ✅'; clearInterval(funTimer); funTimer = null; }
+  const tip = $('#upTip'); if(tip) tip.style.display = p.done ? 'none' : '';
+  if(p.done){ fun.textContent = p.ok ? 'All done ✅' : ''; clearInterval(funTimer); funTimer = null; }
   else{
     if(!fun.textContent) fun.textContent = funLine();
     if(!funTimer) funTimer = setInterval(() => { const f = $('#upFun'); if(!f || !PH.prog || PH.prog.done){ clearInterval(funTimer); funTimer = null; return; }
@@ -2271,63 +2297,110 @@ function updateUpload(){
   }
 }
 
+const UP_PAR = 3;                                   // photos sent at the same time
+const nameSize = sig => String(sig || '').split('|').slice(0, 2).join('|');   // iPhone changes the date on every pick
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let lastHidden = 0, upChunk = CHUNK;
+document.addEventListener('visibilitychange', () => { if(document.visibilityState !== 'visible') lastHidden = Date.now(); });
+const usable = () => document.visibilityState === 'visible' && navigator.onLine;
+async function waitUsable(){
+  if(usable()) return;
+  PH.prog.paused = true; updateUpload();
+  while(!usable()) await sleep(800);
+  PH.prog.paused = false; lastHidden = Date.now(); updateUpload();
+}
+// a network call that waits while the app is in the background / offline, and retries on a shaky connection
+async function upCall(body, ms, link){
+  let tries = 0;
+  while(true){
+    await waitUsable();
+    try{ return await api(body, ms, link); }
+    catch(e){
+      if(/Unknown action/.test(e.message)) throw e;
+      if(!usable() || Date.now() - lastHidden < 4000) continue;      // failed because they switched apps: not a real failure
+      if(++tries >= 5) throw e;
+      if(body.action === 'upChunk') upChunk = Math.max(1024*1024, upChunk / 2);   // weak network: smaller pieces for the next files
+      await sleep(1500 * tries);
+    }
+  }
+}
+function whyFailed(e){
+  const m = String(e && (e.message || e) || '');
+  if(e && e.name === 'AbortError' || /abort|timed? ?out/i.test(m)) return 'weak network (timed out)';
+  if(/Failed to fetch|NetworkError|Load failed|network/i.test(m)) return 'no connection';
+  return m.slice(0, 80) || 'unknown error';
+}
+
 async function uploadFiles(files){
   if(!files.length || PH.busy) return;
   if(!navigator.onLine){ toast('📴 Photos need internet. Try again when you have signal.'); return; }
   PH.busy = true;
-  let wake = null; try{ wake = await navigator.wakeLock.request('screen'); }catch(e){}
+  let wake = null;
+  const getWake = async () => { try{ wake = await navigator.wakeLock.request('screen'); }catch(e){} };
+  await getWake();
+  const reWake = () => { if(document.visibilityState === 'visible' && PH.busy) getWake(); };
+  document.addEventListener('visibilitychange', reWake);
   const stopLeave = e => { e.preventDefault(); e.returnValue = ''; };
   window.addEventListener('beforeunload', stopLeave);
-  const done = new Set((PH.data ? PH.data.photos : []).map(p => p.sig));
-  const todo = files.filter(f => f.size > 0 && !done.has(fileSig(f)));
+  const done = new Set((PH.data ? PH.data.photos : []).map(p => nameSize(p.sig)));
+  const seenNow = new Set();
+  const todo = files.filter(f => { const k = nameSize(fileSig(f)); if(f.size <= 0 || done.has(k) || seenNow.has(k)) return false; seenNow.add(k); return true; });
   const skipped = files.length - todo.length;
-  PH.prog = {i: 0, n: todo.length, bytesDone: 0, bytesTotal: todo.reduce((a,f) => a + f.size, 0), line: skipped ? `${skipped} already uploaded, skipping them.` : 'Starting the engine…', errors: [], done: false, found: {}};
+  PH.failedFiles = [];
+  PH.prog = {i: 0, n: todo.length, bytesDone: 0, bytesTotal: todo.reduce((a,f) => a + f.size, 0), line: skipped ? `${skipped} already uploaded, skipping them.` : 'Starting the engine…', errors: [], done: false, found: {}, ok: 0, sorted: 0};
   renderPhotos();
   const faces = tripFaces();
-  const base = tripMembersPayload(), T = currentTrip;   // stays the same even if someone switches trips mid-upload
+  const base = tripMembersPayload(), T = currentTrip, L = photoLink();   // stay the same even if someone switches trips mid-upload
   PH.prog.trip = T;
   const needAI = todo.some(f => !isVideo(f));
   try{ if(needAI){ PH.prog.line = '🧠 Loading face AI…'; updateUpload(); await loadFaceAI(); } }
-  catch(e){ PH.prog.errors.push('face AI'); }
-  let found = 0;
-  for(const f of todo){
-    PH.prog.i++;
+  catch(e){ PH.prog.line = '🧠 Face AI didn\'t load, photos go to "No face found" for now'; }
+  let faceLock = Promise.resolve();
+  const scan = f => { const run = faceLock.then(() => facesIn(f)); faceLock = run.catch(() => {}); return run; };   // one face scan at a time
+
+  async function one(f){
+    const video = isVideo(f);
+    let keys = [], faceDescs = [];
+    if(!video && window.faceapi){
+      PH.prog.line = `🔍 Finding faces in ${f.name}…`; updateUpload();
+      try{ const fs = await scan(f); faceDescs = fs.map(x => roundDesc(x.desc)); keys = matchFaces(faceDescs, faces); }catch(e){}
+    }
+    const sortedByFace = !video && keys.length > 0;
+    if(video) keys = ['videos']; else if(!keys.length) keys = ['unsorted'];
+    const names = keys.filter(k => k !== 'videos' && k !== 'unsorted').map(nameOf);
+    PH.prog.line = `⬆️ ${f.name}${names.length ? ' → ' + names.join(', ') : video ? ' → Videos' : ' → No face found'}`; updateUpload();
+    const pid = 'p' + uid(), mime = f.type || 'application/octet-stream', size = upChunk;
+    let sent = 0;
     try{
-      const video = isVideo(f);
-      let keys = [], faceDescs = [];
-      if(!video && needAI && window.faceapi){
-        PH.prog.line = `🔍 Finding faces in ${f.name}…`; updateUpload();
-        try{ const fs = await facesIn(f); faceDescs = fs.map(x => roundDesc(x.desc)); keys = matchFaces(faceDescs, faces); }catch(e){}
-      }
-      if(video) keys = ['videos'];
-      else if(!keys.length) keys = ['unsorted'];
-      else found++;
-      const names = keys.filter(k => k !== 'videos' && k !== 'unsorted').map(nameOf);
-      PH.prog.line = `⬆️ ${f.name}${names.length ? ' → ' + names.join(', ') : video ? ' → Videos' : ' → No face found'}`; keys.forEach(k => { if(k !== 'videos' && k !== 'unsorted') PH.prog.found[k] = (PH.prog.found[k] || 0) + 1; }); updateUpload();
-      const pid = 'p' + uid(), mime = f.type || 'application/octet-stream';
-      const st = await api({action: 'upStart', ...base, name: f.name, mime, size: f.size, firstKey: keys[0]});
+      const st = await upCall({action: 'upStart', ...base, name: f.name, mime, size: f.size, firstKey: keys[0]}, 60000, L);
       let fileId = null, start = 0;
       while(start < f.size){
-        const part = f.slice(start, Math.min(f.size, start + CHUNK));
+        const part = f.slice(start, Math.min(f.size, start + size));
         const data = await readChunkB64(part);
-        let r, tries = 0;
-        while(true){
-          try{ r = await api({action: 'upChunk', session: st.session, start, total: f.size, data}, 120000); break; }
-          catch(e){ if(++tries >= 3) throw e; await new Promise(z => setTimeout(z, 2000 * tries)); }
-        }
-        start += part.size; PH.prog.bytesDone += part.size; updateUpload();
+        const r = await upCall({action: 'upChunk', session: st.session, start, total: f.size, data}, 120000, L);
+        start += part.size; sent += part.size; PH.prog.bytesDone += part.size; updateUpload();
         if(r.done){ fileId = r.fileId; break; }
       }
       if(!fileId) throw new Error('Upload did not finish');
-      await api({action: 'upDone', ...base, pid, fileId, firstKey: keys[0], keys, name: f.name, kind: video ? 'video' : 'photo', mime, size: f.size, sig: fileSig(f), by: me || '', faces: faceDescs});
-      done.add(fileSig(f));
-    }catch(e){ PH.prog.errors.push(f.name); PH.prog.bytesDone += 0; }
+      await upCall({action: 'upDone', ...base, pid, fileId, firstKey: keys[0], keys, name: f.name, kind: video ? 'video' : 'photo', mime, size: f.size, sig: fileSig(f), by: me || '', faces: faceDescs}, 120000, L);
+      done.add(nameSize(fileSig(f)));
+      PH.prog.ok++; if(sortedByFace) PH.prog.sorted++;
+      keys.forEach(k => { if(k !== 'videos' && k !== 'unsorted') PH.prog.found[k] = (PH.prog.found[k] || 0) + 1; });
+    }catch(e){
+      PH.prog.bytesDone -= sent;  PH.prog.bytesTotal -= f.size;
+      PH.prog.errors.push({n: f.name, why: whyFailed(e)}); PH.failedFiles.push(f);
+    }
+    PH.prog.i++; updateUpload();
   }
+  let next = 0;
+  await Promise.all(Array.from({length: Math.min(UP_PAR, todo.length)}, async () => { while(next < todo.length) await one(todo[next++]); }));
+
   PH.prog.done = true;
-  const okN = todo.length - PH.prog.errors.length;
+  const okN = PH.prog.ok;
   PH.prog.line = !todo.length ? `✅ All ${skipped} already uploaded, nothing new to send.`
-    : `✅ ${okN} uploaded${found ? `, ${found} sorted by face` : ''}${skipped ? ` (${skipped} skipped, already there)` : ''}. You can delete them from your phone now.`;
+    : `✅ ${okN} uploaded${PH.prog.sorted ? `, ${PH.prog.sorted} sorted by face` : ''}${skipped ? ` (${skipped} skipped, already there)` : ''}.${okN ? ' You can delete them from your phone now.' : ''}`;
   window.removeEventListener('beforeunload', stopLeave);
+  document.removeEventListener('visibilitychange', reWake);
   try{ wake && wake.release(); }catch(e){}
   PH.busy = false;
   updateUpload();
@@ -2351,7 +2424,7 @@ function savedState(){
 }
 const isDriveOwner = () => !!(myDrive() && photoLink() && myDrive().url === photoLink());
 function savedCardHTML(){
-  const d = PH.data; if(!d) return '';
+  const d = PH.data; if(!d || !isDriveOwner()) return '';
   const st = savedState();
   if(!d.photos.length) return st.cleared ? `<div class="banner">🧹 This trip's photos were cleared from the Drive on ${esc(fmtDay(new Date(st.cleared).toLocaleDateString('en-CA')))}.</div>` : '';
   const withPhotos = S.members.filter(m => d.photos.some(p => p.copies[m.id]));
@@ -2742,7 +2815,7 @@ function renderHome(){
     if(members.length < 2) return toast('Add at least 2 people');
     const id = 't' + uid();
     currentTrip = id;
-    addEvent('trip', {tripId: id, name});
+    addEvent('trip', {tripId: id, name, owner: deviceId});
     addEvent('members', {members});
     const nd = $('#ntDrive');
     if(nd && nd.checked && myDrive()) connectDrive(id, myDrive().url, members[0] ? myDrive().by || members[0].name : myDrive().by);

@@ -1,6 +1,6 @@
 /* Trip Split offline helper: keeps a copy of the app on the phone.
    Expenses are never stored here: they live in the Google Sheet (and on the phone until sent). */
-const CACHE = 'tripsplit-v22';
+const CACHE = 'tripsplit-v24';
 const SHELL = ['./', './index.html', './apple-touch-icon.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
